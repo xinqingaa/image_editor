@@ -16,10 +16,10 @@ class ActiveToolMenu extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (isCropTool(controller.activeTool)) {
-      return commonToolBar(child: CropToolbar(controller: controller));
+      return commonToolBar(child: CropToolbar(controller: controller) , context: context);
     }
     if (isRotateTool(controller.activeTool)) {
-      return commonToolBar(child: RotateToolbar(controller: controller));
+      return commonToolBar(child: RotateToolbar(controller: controller), context: context);
     }
     // if (controller.activeTool == EditToolsMenu.text) {
     //   return TextToolbar(controller: controller); // 文本工具栏可以类似地创建
@@ -28,24 +28,28 @@ class ActiveToolMenu extends StatelessWidget {
   }
 
   Widget commonToolBar ({
-    required Widget child
+    required Widget child,
+    required BuildContext context
   }){
     return Padding(
-      padding: EdgeInsets.symmetric(horizontal: 16) ,
+      padding: EdgeInsets.only(
+        left: 16,
+        right: 16,
+        bottom: MediaQuery.of(context).padding.bottom + 20,
+      ),
       child: Row(
+        crossAxisAlignment:CrossAxisAlignment.end,
         children: [
           IconButton(
-              onPressed: (){
-                controller.cancelCurrentTool();
-              },
-              icon: Icon(Icons.close ,  size: 18,  color: Colors.grey)
+            highlightColor: Colors.grey[800] ,
+            onPressed: () => controller.cancelCurrentTool(),
+            icon: Icon(Icons.close ,  size: 18,  color: Colors.grey)
           ),
           Expanded(child: child),
           IconButton(
-              onPressed: () async {
-                await controller.applyCurrentTool();
-              },
-              icon: Icon(Icons.check,  size: 20, color: Colors.grey)
+            highlightColor: Colors.grey[800] ,
+            onPressed: () async => await controller.applyCurrentTool(),
+            icon: Icon(Icons.check,  size: 20, color: Colors.grey)
           ),
         ],
       ),

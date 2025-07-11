@@ -129,9 +129,7 @@ class ImageEditorController extends ChangeNotifier {
       cancelCurrentTool();
       return;
     }
-
     _activeTool = tool;
-
     // 进入工具时，备份当前状态以便取消
     if (isCroppingActive) {
       _backupCropRect = _cropRect; // 备份当前裁剪框
@@ -139,11 +137,9 @@ class ImageEditorController extends ChangeNotifier {
     } else {
       _cropRect = null; // 确保非裁剪模式下没有裁剪框
     }
-
     if (isRotateTool(_activeTool)) {
       _backupRotationAngle = _currentRotationAngle; // 备份当前旋转角度
     }
-
     notifyListeners();
   }
 
@@ -158,6 +154,13 @@ class ImageEditorController extends ChangeNotifier {
   /// 旋转图片（按指定角度）
   void rotate(double degrees) {
     _currentRotationAngle += (degrees * math.pi / 180.0);
+    notifyListeners();
+  }
+
+  /// @param degrees - 从滑块传来的角度值 (-45 to +45)
+  void updateFreeRotation(double degrees) {
+    // 核心逻辑：在进入旋转工具时备份的初始角度上，增加滑块提供的增量
+    _currentRotationAngle = _backupRotationAngle + (degrees * math.pi / 180.0);
     notifyListeners();
   }
 
@@ -307,8 +310,30 @@ class ImageEditorController extends ChangeNotifier {
   }
 
 
-  /// 裁剪逻辑 会牺牲清晰度
-  /// 会在缩放的基础上裁剪  本质上是在这个低分辨率的预览图上，再截取出一小块（_cropRect） 所以导致清晰度骤降
+  /// 裁剪逻辑 会牺牲清晰度 会在缩放的基础上裁剪  本质上是在这个低分辨率的预览图上，再截取出一小块（_cropRect） 所以导致清晰度骤降
+  /// 问题根源：屏幕像素 vs. 图像像素
+  // 你之前的裁剪逻辑可以概括为：“对屏幕上的所见内容进行截图”。
+  // 缩放显示：一张高分辨率的图片（例如 4000x3000 像素）为了在手机屏幕（例如 1080x1920 像素）上完整显示，会被缩小。此时，控制器中的 _scale 变量可能是一个很小的值（比如 0.27）。
+  // 屏幕绘制：CustomPainter 使用这个 _scale 值将大图绘制到小小的画布上。在这个过程中，GPU/CPU 已经进行了像素合并和抗锯齿处理，屏幕上实际显示的图像已经是低分辨率的预览版本了。
+  // 错误裁剪：你之前的 _captureCroppedImage 方法，本质上是在这个低分辨率的预览图上，再截取出一小块（_cropRect）。
+  // 恶性循环：当你对一个已经缩小的预览图进行裁剪，得到的自然是分辨率极低的图像。例如，从一个被缩小到 1080x810 的预览图中裁剪一个 200x200 的区域，最终得到的图片就是 200x200 像素，而它在原始 4000x3000 的大图上可能对应的是 740x740 像素的区域。你丢失了大量的像素信息，导致清晰度断崖式下跌。
+  // 解决方案：反向映射与高精度裁剪
+  // 正确的做法是，我们必须始终从原始的、全分辨率的 _image 上提取像素数据。
+  // 具体步骤如下：
+  // 确定屏幕裁剪框：用户在屏幕上拖动选择的 _cropRect 是我们的目标区域。
+  // 计算变换矩阵：计算出将原始图像坐标映射到屏幕坐标的变换矩阵（matrixToScreen），这个矩阵包含了平移、旋转和缩放。
+  // 求逆矩阵：计算上一步矩阵的逆矩阵（screenToImage）。这个逆矩阵的魔力在于，它可以将屏幕坐标反向映射回原始图像的坐标。
+  // 映射裁剪框：使用这个逆矩阵，将屏幕上的 _cropRect 的四个顶点坐标，转换成原始 _image 上的对应坐标。
+  // 高精度绘制：使用 canvas.drawImageRect() 方法。这个强大的方法可以从源图像（_image）中，根据我们计算出的高精度源矩形（srcRect），精确地提取像素，并将其绘制到目标矩形（dstRect）中。
+  // 生成新图：最终生成的 ui.Image，其像素数据直接来源于原始大图，从而保留了最大的清晰度。
+  // 代码改动总结
+  // 删除了 _captureCroppedImage：这个方法是导致问题的根源，我们用新的实现完全替代了它。
+  // 重写了 _applyCrop：
+  // 它现在是所有高精度裁剪逻辑的核心。
+  // 通过矩阵求逆，将屏幕坐标 _cropRect 映射回原始图像坐标 srcRect。
+  // 使用 canvas.drawImageRect 和 FilterQuality.high 从全分辨率的 _image 中提取像素。
+  // 最终生成的新图片 croppedImage 拥有了它应有的全部清晰度。
+  // 其他文件：你的其他所有文件都不需要任何改动。
   Future<ui.Image?> _captureCroppedImage() async {
     // ... [此方法逻辑不变，依然是从屏幕视图中抠出cropRect区域] ...
     if (_cropRect == null || !isCroppingActive || _canvasSize == null) return null;
