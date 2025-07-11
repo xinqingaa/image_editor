@@ -1,0 +1,27 @@
+name: example
+description: Demonstrates how to use the image_editor package.
+publish_to: 'none'
+
+environment:
+  sdk: '>=3.3.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+
+  # 使用 path 依赖本地的 SDK
+  image_editor:
+    path: ../
+
+  cupertino_icons: ^1.0.6
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/
