@@ -11,35 +11,37 @@ class CropToolbar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            _buildCropButton(
-              tool: EditToolsMenu.cropFree,
-              icon: Icons.crop_free,
-              aspectRatio: null,
-            ),
-            _buildCropButton(
-              tool: EditToolsMenu.crop16_9,
-              icon: Icons.crop_16_9,
-              aspectRatio: 16 / 9,
-            ),
-            _buildCropButton(
-              tool: EditToolsMenu.crop5_4,
-              icon: Icons.crop_5_4,
-              aspectRatio: 5 / 4,
-            ),
-            _buildCropButton(
-              tool: EditToolsMenu.crop1_1,
-              icon: Icons.crop_square,
-              aspectRatio: 1 / 1,
-            ),
-          ],
-        ),
+    return SizedBox(
+      width: double.infinity,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          _buildCropButton(
+            tool: EditToolsMenu.cropFree,
+            icon: Icons.crop_free,
+            aspectRatio: null,
+          ),
+          _buildCropButton(
+            tool: EditToolsMenu.crop16_9,
+            icon: Icons.crop_16_9,
+            aspectRatio: 16 / 9,
+          ),
+          _buildCropButton(
+            tool: EditToolsMenu.crop5_4,
+            icon: Icons.crop_5_4,
+            aspectRatio: 5 / 4,
+          ),
+          _buildCropButton(
+            tool: EditToolsMenu.crop1_1,
+            icon: Icons.crop_square,
+            aspectRatio: 1 / 1,
+          ),
+        ],
       ),
+      //  // 暂时子菜单只有三个 不要滚动
+      // SingleChildScrollView(
+      //   scrollDirection: Axis.horizontal,
+      // ),
     );
   }
 
@@ -47,7 +49,7 @@ class CropToolbar extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 8),
       child: IconButton(
-        icon: Icon(icon, size: 20, color: Colors.white),
+        icon: Icon(icon, color: Colors.white),
         style: IconButton.styleFrom(
           backgroundColor: controller.activeTool == tool ? Colors.grey[800] : Colors.transparent,
         ),

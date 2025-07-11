@@ -12,15 +12,15 @@ class RotateToolbar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: EdgeInsets.symmetric(horizontal: 16),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            // 自由旋转暂时没有实现滑块，先做一个占位按钮
-            IconButton(
+    return SizedBox(
+      width: double.infinity,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          // 自由旋转暂时没有实现滑块，先做一个占位按钮
+          Container(
+            margin: const EdgeInsets.symmetric(horizontal: 8),
+            child: IconButton(
               tooltip: "自由旋转",
               icon: Icon(Icons.rotate_left_outlined, color: Colors.white),
               style: IconButton.styleFrom(
@@ -31,23 +31,32 @@ class RotateToolbar extends StatelessWidget {
                 controller.selectTool(EditToolsMenu.rotateFree);
               },
             ),
-            SizedBox(width: 12,),
-            IconButton(
+          ),
+          Container(
+            margin: const EdgeInsets.symmetric(horizontal: 8),
+            child:IconButton(
               tooltip: "逆时针90°",
               icon: Icon(CupertinoIcons.rotate_left, color: Colors.white),
               highlightColor:Colors.grey[800],
               onPressed: () => controller.rotate(-90),
             ),
-            SizedBox(width: 12,),
-            IconButton(
+          ),
+          Container(
+            margin: const EdgeInsets.symmetric(horizontal: 8),
+            child: IconButton(
               tooltip: "顺时针90°",
               icon: Icon(CupertinoIcons.rotate_right, color: Colors.white),
               highlightColor:Colors.grey[800],
               onPressed: () => controller.rotate(90),
             ),
-          ],
-        ),
+          )
+        ],
       ),
+      // 暂时子菜单只有三个 不要滚动
+      // SingleChildScrollView(
+      //   scrollDirection: Axis.horizontal,
+      //
+      // ),
     );
   }
 }

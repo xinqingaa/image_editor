@@ -67,11 +67,9 @@ class _ImageEditorViewState extends State<ImageEditorView> {
       builder: (context, constraints) {
         // 及时将画布尺寸告知 Controller
         _controller.setCanvasSize(constraints.biggest);
-
         if (_controller.canvasSize == null) {
           return const Center(child: CircularProgressIndicator());
         }
-
         return GestureDetector(
           onScaleStart: _controller.onScaleStart,
           onScaleUpdate: _controller.onScaleUpdate,
