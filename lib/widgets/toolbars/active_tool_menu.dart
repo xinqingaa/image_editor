@@ -32,12 +32,13 @@ class ActiveToolMenu extends StatelessWidget {
     required Widget child,
     required BuildContext context
   }){
-    return Padding(
+    return Container(
       padding: EdgeInsets.only(
         left: 16,
         right: 16,
         bottom: MediaQuery.of(context).padding.bottom + 20,
       ),
+      color: Colors.black,
       child: Row(
         crossAxisAlignment:CrossAxisAlignment.end,
         children: [

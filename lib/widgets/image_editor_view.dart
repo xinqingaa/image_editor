@@ -47,12 +47,19 @@ class _ImageEditorViewState extends State<ImageEditorView> {
       builder: (context, child) {
         return Scaffold(
           backgroundColor: Colors.black,
-          body: Column(
+          body: Stack(
             children: [
-              Expanded(
+              // 画布将始终占据整个 Stack
+              Positioned.fill(
                 child: _buildEditorCanvas(),
               ),
-              _buildBottomToolbars(),
+              // 工具栏将作为浮层，定位在底部
+              Positioned(
+                bottom: 0,
+                left: 0,
+                right: 0,
+                child: _buildBottomToolbars(),
+              ),
             ],
           ),
         );
