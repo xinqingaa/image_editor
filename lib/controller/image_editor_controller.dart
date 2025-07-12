@@ -71,20 +71,37 @@ class ImageEditorController extends ChangeNotifier {
 
   /// UI层在布局完成后需要调用此方法设置画布尺寸
   void setCanvasSize(Size size) {
-    if (_canvasSize != size) {
+    // 检查是否是第一次设置。用 _canvasSize == null 更可靠。
+    if (_canvasSize == null) {
       _canvasSize = size;
-      // 首次设置画布尺寸时，计算图片的初始缩放以适配屏幕
-      if (_scale == 1.0 && _translateX == 0.0 && _translateY == 0.0) {
-        _initializeImageScale();
-      }
+      // 使用 addPostFrameCallback 将初始化操作延迟到 build 周期之后
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        // 确保控制器没有被 dispose
+        if (_canvasSize != null) {
+          _initializeImageScale();
+        }
+      });
+    }
+    // 如果画布尺寸发生变化（例如屏幕旋转），也需要处理
+    else if (_canvasSize != size) {
+      _canvasSize = size;
+      // 这里可以添加逻辑来重新计算缩放等，如果需要的话
     }
   }
 
   void _initializeImageScale() {
     if (_canvasSize == null) return;
-    final widthRatio = _canvasSize!.width / _image.width;
-    final heightRatio = _canvasSize!.height / _image.height;
+    // 1. 定义安全区域的缩放系数
+    const double paddingFactor = 0.92;
+    // 2. 计算出用于缩放的目标尺寸 (比实际画布小)
+    final double targetWidth = _canvasSize!.width * paddingFactor;
+    final double targetHeight = _canvasSize!.height * paddingFactor;
+    // 3. 基于目标尺寸计算宽度和高度的缩放比
+    final double widthRatio = targetWidth / _image.width;
+    final double heightRatio = targetHeight / _image.height;
+    // 4. 取两个比例中较小的一个，以确保图片完整显示在目标区域内，并保持其原始宽高比
     _scale = math.min(widthRatio, heightRatio);
+    // 5. 通知UI更新
     notifyListeners();
   }
 
