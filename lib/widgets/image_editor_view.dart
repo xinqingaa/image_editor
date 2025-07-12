@@ -52,7 +52,7 @@ class _ImageEditorViewState extends State<ImageEditorView> {
               Expanded(
                 child: _buildEditorCanvas(),
               ),
-              _buildBottomToolbars()
+              _buildBottomToolbars(),
             ],
           ),
         );

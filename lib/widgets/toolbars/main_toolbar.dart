@@ -80,6 +80,7 @@ class MainToolbar extends StatelessWidget {
           icon: Icon(icon, color: Colors.white),
           onPressed: () => controller.selectTool(tool),
         ),
+        // 由于现在展开子菜单时 关闭了主菜单 所以选中标志看不到
         if (isActive)
           Positioned(
             bottom: -2,

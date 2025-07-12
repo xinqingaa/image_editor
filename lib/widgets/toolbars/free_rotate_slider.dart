@@ -139,7 +139,6 @@ class _FreeRotateSliderState extends State<FreeRotateSlider> {
       setState(() {
         _isSnapping = true;
       });
-
       // 执行动画
       _scrollController.animateTo(
         targetOffset,
@@ -176,6 +175,8 @@ class _FreeRotateSliderState extends State<FreeRotateSlider> {
             _buildPointer(),
             // 角度显示
             _buildDegreeText(),
+            if(_currentDegrees != 0.0)
+              _buildResetText()
           ],
         ),
       ),
@@ -185,14 +186,35 @@ class _FreeRotateSliderState extends State<FreeRotateSlider> {
   Widget _buildDegreeText() {
     return Positioned(
       top: 0,
-      child: Text(
-        '${_currentDegrees == 0.0 ? '0.0' : _currentDegrees.toStringAsFixed(1)}°',
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 14,
-          fontWeight: FontWeight.bold,
-        ),
-      ),
+      child: Row(
+        children: [
+          Text(
+            '${_currentDegrees == 0.0 ? '0.0' : _currentDegrees.toStringAsFixed(1)}°',
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      )
+    );
+  }
+
+  Widget _buildResetText(){
+    return Positioned(
+      top: -8,
+      right: 0,
+      child:
+      TextButton(
+        onPressed: () {
+          setState(() {
+            _currentDegrees = 0.0;
+          });
+          widget.onAngleChanged(0.0);
+        },
+        child: Text("重置", style: TextStyle(fontSize: 12 , color: Colors.grey[400]) ,)
+      )
     );
   }
 
