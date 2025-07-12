@@ -352,64 +352,128 @@ class ImageEditorController extends ChangeNotifier {
   }
 
 
-  // 应用裁剪
-  Future<void> _applyCrop() async {
-    if (_cropRect == null || _canvasSize == null) return;
+  /// [替换旧的_captureCroppedImage]
+  /// 一个全新的、高保真的裁剪实现
+  Future<ui.Image?> _captureHiResCroppedImage() async {
+    if (_cropRect == null || _canvasSize == null) return null;
 
-    // 1. 计算将图像坐标映射到屏幕坐标的变换矩阵
-    final Matrix4 matrixToScreen = Matrix4.identity()
-      ..translate(_canvasSize!.width / 2, _canvasSize!.height / 2)
-      ..rotateZ(_currentRotationAngle)
-      ..scale(_scale, _scale)
-      ..translate(-_image.width / 2, -_image.height / 2);
+    // 1. 计算从“图片坐标系”到“屏幕坐标系”的变换矩阵
+    final Matrix4 matrixToScreen = Matrix4.identity();
+    matrixToScreen.translate(_canvasSize!.width / 2, _canvasSize!.height / 2);
+    matrixToScreen.rotateZ(_currentRotationAngle);
+    matrixToScreen.scale(_scale, _scale);
+    matrixToScreen.translate(-_image.width / 2, -_image.height / 2);
 
-    // 2. 计算其逆矩阵，用于将屏幕坐标映射回原始图像坐标
-    final Matrix4 screenToImage = Matrix4.inverted(matrixToScreen);
+    // 2. 求逆矩阵，得到从“屏幕坐标系”返回“图片坐标系”的变换
+    final Matrix4 screenToImageMatrix = Matrix4.inverted(matrixToScreen);
 
-    // 3. 将屏幕上的裁剪框的四个角通过逆矩阵转换到原始图像的坐标系中
-    final Offset srcTopLeft = MatrixUtils.transformPoint(screenToImage, _cropRect!.topLeft);
-    final Offset srcTopRight = MatrixUtils.transformPoint(screenToImage, _cropRect!.topRight);
-    final Offset srcBottomLeft = MatrixUtils.transformPoint(screenToImage, _cropRect!.bottomLeft);
-    final Offset srcBottomRight = MatrixUtils.transformPoint(screenToImage, _cropRect!.bottomRight);
+    // 3. 将屏幕上的裁剪框的四个角，通过逆矩阵变换回图片上的坐标
+    final topLeft = MatrixUtils.transformPoint(screenToImageMatrix, _cropRect!.topLeft);
+    final topRight = MatrixUtils.transformPoint(screenToImageMatrix, _cropRect!.topRight);
+    final bottomLeft = MatrixUtils.transformPoint(screenToImageMatrix, _cropRect!.bottomLeft);
+    final bottomRight = MatrixUtils.transformPoint(screenToImageMatrix, _cropRect!.bottomRight);
 
-    // 4. 根据转换后的四个点，计算出在原始图像上对应的源矩形(srcRect)
-    // 这个矩形包围了用户在屏幕上选择的区域在原图上的所有像素
-    final double srcLeft = math.min(srcTopLeft.dx, math.min(srcTopRight.dx, math.min(srcBottomLeft.dx, srcBottomRight.dx)));
-    final double srcTop = math.min(srcTopLeft.dy, math.min(srcTopRight.dy, math.min(srcBottomLeft.dy, srcBottomRight.dy)));
-    final double srcRight = math.max(srcTopLeft.dx, math.max(srcTopRight.dx, math.max(srcBottomLeft.dx, srcBottomRight.dx)));
-    final double srcBottom = math.max(srcTopLeft.dy, math.max(srcTopRight.dy, math.max(srcBottomLeft.dy, srcBottomRight.dy)));
-    final Rect srcRect = Rect.fromLTRB(srcLeft, srcTop, srcRight, srcBottom);
+    // 4. 计算能完全包围这四个点的、在图片坐标系中的矩形边界 (sourceRect)
+    final double minX = [topLeft.dx, topRight.dx, bottomLeft.dx, bottomRight.dx].reduce(math.min);
+    final double maxX = [topLeft.dx, topRight.dx, bottomLeft.dx, bottomRight.dx].reduce(math.max);
+    final double minY = [topLeft.dy, topRight.dy, bottomLeft.dy, bottomRight.dy].reduce(math.min);
+    final double maxY = [topLeft.dy, topRight.dy, bottomLeft.dy, bottomRight.dy].reduce(math.max);
 
-    // 5. 准备进行高精度绘制
+    final Rect sourceRect = Rect.fromLTRB(minX, minY, maxX, maxY);
+
+    // 5. 计算新图片的尺寸（高保真尺寸）
+    final int newWidth = sourceRect.width.round();
+    final int newHeight = sourceRect.height.round();
+
+    if (newWidth <= 0 || newHeight <= 0) return null;
+
+    // 6. 使用 PictureRecorder 和 drawImageRect 进行高保真绘制
     final recorder = ui.PictureRecorder();
-    // 目标画布的大小就是屏幕上裁剪框的大小
-    final canvas = Canvas(recorder, Rect.fromLTWH(0, 0, _cropRect!.width, _cropRect!.height));
+    // 创建一个尺寸为高保真尺寸的画布
+    final canvas = Canvas(recorder, Rect.fromLTWH(0, 0, newWidth.toDouble(), newHeight.toDouble()));
 
-    // 目标矩形(dstRect)覆盖整个新画布
-    final Rect dstRect = Rect.fromLTWH(0, 0, _cropRect!.width, _cropRect!.height);
+    final paint = Paint()..filterQuality = FilterQuality.high;
 
-    // 使用最高质量的滤波
-    final Paint paint = Paint()..filterQuality = FilterQuality.high;
+    // 定义目标矩形为整个新画布
+    final Rect destinationRect = Rect.fromLTWH(0, 0, newWidth.toDouble(), newHeight.toDouble());
 
-    // 6. [魔法发生的地方] 使用 drawImageRect 从原始 _image 中提取 srcRect 的像素，
-    // 并将其绘制到新画布的 dstRect 区域。
-    // Flutter会处理好因旋转导致的倾斜矩形的采样问题。
-    canvas.drawImageRect(_image, srcRect, dstRect, paint);
+    // 核心：从原图(_image)的 sourceRect 区域，绘制到新画布的 destinationRect 区域
+    canvas.drawImageRect(_image, sourceRect, destinationRect, paint);
 
-    // 7. 生成最终的高清裁剪图
-    // 注意：这里输出的图片尺寸是 _cropRect 的尺寸，但其像素密度是来自原图的，所以非常清晰。
-    final ui.Image croppedImage = await recorder.endRecording().toImage(
-      _cropRect!.width.round(),
-      _cropRect!.height.round(),
-    );
+    // 7. 生成最终的高清图片
+    final picture = recorder.endRecording();
+    return await picture.toImage(newWidth, newHeight);
+  }
 
-    // 8. 用裁剪后的高清图片替换当前图片，并重置所有变换
-    resetTransformations(newImage: croppedImage);
-
-    // 清理裁剪状态
+  Future<void> _applyCrop() async {
+    if (_cropRect == null) return;
+    // 调用新的、高保真的裁剪方法
+    final croppedImage = await _captureHiResCroppedImage();
+    if (croppedImage != null) {
+      resetTransformations(newImage: croppedImage);
+    }
     _cropRect = null;
     _backupCropRect = null;
   }
+
+  // 应用裁剪
+  // Future<void> _applyCrop() async {
+  //   if (_cropRect == null || _canvasSize == null) return;
+  //
+  //   // 1. 计算将图像坐标映射到屏幕坐标的变换矩阵
+  //   final Matrix4 matrixToScreen = Matrix4.identity()
+  //     ..translate(_canvasSize!.width / 2, _canvasSize!.height / 2)
+  //     ..rotateZ(_currentRotationAngle)
+  //     ..scale(_scale, _scale)
+  //     ..translate(-_image.width / 2, -_image.height / 2);
+  //
+  //   // 2. 计算其逆矩阵，用于将屏幕坐标映射回原始图像坐标
+  //   final Matrix4 screenToImage = Matrix4.inverted(matrixToScreen);
+  //
+  //   // 3. 将屏幕上的裁剪框的四个角通过逆矩阵转换到原始图像的坐标系中
+  //   final Offset srcTopLeft = MatrixUtils.transformPoint(screenToImage, _cropRect!.topLeft);
+  //   final Offset srcTopRight = MatrixUtils.transformPoint(screenToImage, _cropRect!.topRight);
+  //   final Offset srcBottomLeft = MatrixUtils.transformPoint(screenToImage, _cropRect!.bottomLeft);
+  //   final Offset srcBottomRight = MatrixUtils.transformPoint(screenToImage, _cropRect!.bottomRight);
+  //
+  //   // 4. 根据转换后的四个点，计算出在原始图像上对应的源矩形(srcRect)
+  //   // 这个矩形包围了用户在屏幕上选择的区域在原图上的所有像素
+  //   final double srcLeft = math.min(srcTopLeft.dx, math.min(srcTopRight.dx, math.min(srcBottomLeft.dx, srcBottomRight.dx)));
+  //   final double srcTop = math.min(srcTopLeft.dy, math.min(srcTopRight.dy, math.min(srcBottomLeft.dy, srcBottomRight.dy)));
+  //   final double srcRight = math.max(srcTopLeft.dx, math.max(srcTopRight.dx, math.max(srcBottomLeft.dx, srcBottomRight.dx)));
+  //   final double srcBottom = math.max(srcTopLeft.dy, math.max(srcTopRight.dy, math.max(srcBottomLeft.dy, srcBottomRight.dy)));
+  //   final Rect srcRect = Rect.fromLTRB(srcLeft, srcTop, srcRight, srcBottom);
+  //
+  //   // 5. 准备进行高精度绘制
+  //   final recorder = ui.PictureRecorder();
+  //   // 目标画布的大小就是屏幕上裁剪框的大小
+  //   final canvas = Canvas(recorder, Rect.fromLTWH(0, 0, _cropRect!.width, _cropRect!.height));
+  //
+  //   // 目标矩形(dstRect)覆盖整个新画布
+  //   final Rect dstRect = Rect.fromLTWH(0, 0, _cropRect!.width, _cropRect!.height);
+  //
+  //   // 使用最高质量的滤波
+  //   final Paint paint = Paint()..filterQuality = FilterQuality.high;
+  //
+  //   // 6. [魔法发生的地方] 使用 drawImageRect 从原始 _image 中提取 srcRect 的像素，
+  //   // 并将其绘制到新画布的 dstRect 区域。
+  //   // Flutter会处理好因旋转导致的倾斜矩形的采样问题。
+  //   canvas.drawImageRect(_image, srcRect, dstRect, paint);
+  //
+  //   // 7. 生成最终的高清裁剪图
+  //   // 注意：这里输出的图片尺寸是 _cropRect 的尺寸，但其像素密度是来自原图的，所以非常清晰。
+  //   final ui.Image croppedImage = await recorder.endRecording().toImage(
+  //     _cropRect!.width.round(),
+  //     _cropRect!.height.round(),
+  //   );
+  //
+  //   // 8. 用裁剪后的高清图片替换当前图片，并重置所有变换
+  //   resetTransformations(newImage: croppedImage);
+  //
+  //   // 清理裁剪状态
+  //   _cropRect = null;
+  //   _backupCropRect = null;
+  // }
 
   ///  应用旋转
   Future<void> _applyRotation() async {
