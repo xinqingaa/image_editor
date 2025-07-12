@@ -91,7 +91,7 @@ class ImageEditorPainter extends CustomPainter {
       paragraph.layout(ui.ParagraphConstraints(width: size.width));
 
       // 获取文本的“内在”尺寸，而不是布局容器的尺寸。
-      final double intrinsicWidth = paragraph.minIntrinsicWidth;
+      final double intrinsicWidth = paragraph.maxIntrinsicWidth;
 
       // 2. 计算绘制位置
       final drawPosition = Offset(
