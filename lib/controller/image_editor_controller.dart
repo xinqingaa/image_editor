@@ -37,6 +37,13 @@ class ImageEditorController extends ChangeNotifier {
 
   bool get isCroppingActive => isCropTool(_activeTool);
 
+
+  // 用于管理所有文本图层
+  List<TextLayerData> textLayers = [];
+
+  // 用于临时存储当前正在输入的文本
+  String _editingText = '';
+
   // ----------------- 手势和拖拽相关的临时状态 -----------------
   double _previousScale = 1.0;
   DragHandlePosition? _activeDragHandle;
@@ -90,6 +97,13 @@ class ImageEditorController extends ChangeNotifier {
   }
 
 
+  // 一个公共方法，让 TextToolbar 可以更新正在编辑的文本
+  void updateEditingText(String text) {
+    _editingText = text;
+  }
+
+
+
   // ----------------- 工具应用与取消逻辑 -----------------
 
   /// 应用当前工具的修改
@@ -98,6 +112,9 @@ class ImageEditorController extends ChangeNotifier {
       await _applyCrop();
     } else if (isRotateTool(_activeTool)) {
       await _applyRotation();
+    } else if (_activeTool == EditToolsMenu.text) {
+      // [新增] 处理添加文本的逻辑
+      _applyText();
     }
     // 关闭工具菜单
     _activeTool = EditToolsMenu.none;
@@ -210,6 +227,27 @@ class ImageEditorController extends ChangeNotifier {
   }
 
   // ----------------- 私有方法：内部逻辑实现 -----------------
+
+  // 应用文本的私有方法
+  void _applyText() {
+    // 如果输入为空，则不添加
+    if (_editingText.trim().isEmpty) {
+      return;
+    }
+    // 创建一个新的文本图层
+    final newLayer = TextLayerData(
+      id: DateTime.now().millisecondsSinceEpoch.toString(), // 使用时间戳作为唯一ID
+      text: _editingText,
+      // 默认放置在画布中心
+      position: canvasSize != null ? Offset(canvasSize!.width / 2, canvasSize!.height / 2) : Offset.zero,
+      color: Colors.blue,
+      fontSize: 32.0
+    );
+
+    textLayers.add(newLayer);
+    _editingText = ''; // 清空临时文本
+  }
+
 
   // 应用裁剪
   Future<void> _applyCrop() async {

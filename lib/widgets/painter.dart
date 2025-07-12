@@ -34,6 +34,10 @@ class ImageEditorPainter extends CustomPainter {
     if (isCropping && cropRect != null) {
       _drawCropUI(canvas, size, cropRect, handleSize);
     }
+
+
+    // --- [新增] 3. 绘制所有文本图层 ---
+    _drawTextLayers(canvas, size);
   }
 
   void _drawCropUI(Canvas canvas, Size size, Rect currentCropRect, double handleRadius) {
@@ -72,6 +76,48 @@ class ImageEditorPainter extends CustomPainter {
     canvas.drawCircle(currentCropRect.bottomCenter, handleRadius, handlePaint);
     canvas.drawCircle(currentCropRect.bottomRight, handleRadius, handlePaint);
   }
+
+
+  // [新增] 绘制文本图层的辅助方法
+  void _drawTextLayers(Canvas canvas, Size size) {
+
+    for (final layer in controller.textLayers) {
+      // 1. 创建段落样式
+      final paragraphStyle = ui.ParagraphStyle(
+        textAlign: TextAlign.center,
+        fontSize: layer.fontSize,
+      );
+
+      // 2. 创建文本样式
+      final textStyle = ui.TextStyle(
+        color: layer.color,
+        fontSize: layer.fontSize,
+        // 你可以在这里添加更多样式，如字体、粗细等
+      );
+
+      // 3. 构建段落
+      final paragraphBuilder = ui.ParagraphBuilder(paragraphStyle)
+        ..pushStyle(textStyle)
+        ..addText(layer.text);
+
+      final paragraph = paragraphBuilder.build();
+
+      // 4. 布局段落，宽度不限
+      paragraph.layout(ui.ParagraphConstraints(width: size.width));
+
+      // 5. 计算绘制位置
+      // 我们希望 layer.position 是文本的中心点
+      final Offset drawPosition = Offset(
+        layer.position.dx - paragraph.width / 2,
+        layer.position.dy - paragraph.height / 2,
+      );
+
+      // 6. 绘制段落到画布
+      canvas.drawParagraph(paragraph, drawPosition);
+    }
+  }
+
+
 
   @override
   bool shouldRepaint(ImageEditorPainter oldDelegate) {

@@ -65,11 +65,8 @@ class _MyHomePageState extends State<MyHomePage> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: <Widget>[
-
               _buildImageDisplay(),
-
               const SizedBox(height: 24),
-
               ElevatedButton(
                 // 如果原始图片还未加载，则禁用按钮
                 onPressed: () async {
@@ -94,7 +91,7 @@ class _MyHomePageState extends State<MyHomePage> {
                     });
                   }
                 },
-                child: const Text('编辑器'),
+                child: const Text('打开编辑器'),
               ),
 
             ],
@@ -114,7 +111,7 @@ class _MyHomePageState extends State<MyHomePage> {
         ),
         const SizedBox(height: 8),
         Container(
-          constraints: const BoxConstraints(maxHeight: 400),
+          constraints: const BoxConstraints(maxHeight: 700),
           decoration: BoxDecoration(
             border: Border.all(color: Colors.grey.shade400, width: 2),
             borderRadius: BorderRadius.circular(8),

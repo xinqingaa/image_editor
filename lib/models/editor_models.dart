@@ -1,4 +1,6 @@
 // image_editor/lib/models/editor_models.dart
+import 'dart:ui';
+import 'package:flutter/material.dart';
 
 /// 编辑工具菜单的枚举
 enum EditToolsMenu {
@@ -25,6 +27,26 @@ enum DragHandlePosition {
   bottomRight,
   inside
 }
+
+/// 代表一个文本图层的数据结构
+class TextLayerData {
+  String id;
+  String text;
+  Offset position;
+  Color color;
+  double fontSize;
+  bool isSelected;
+
+  TextLayerData({
+    required this.id,
+    this.text = '',
+    Offset? position,
+    this.color = Colors.white,
+    this.fontSize = 32.0,
+    this.isSelected = false,
+  }) : position = position ?? Offset.zero; // 如果不提供位置，默认为(0,0)
+}
+
 
 /// 辅助函数：判断一个工具是否属于裁剪类
 bool isCropTool(EditToolsMenu tool) {
