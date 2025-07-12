@@ -37,12 +37,17 @@ class ImageEditorController extends ChangeNotifier {
 
   bool get isCroppingActive => isCropTool(_activeTool);
 
-
+  // -----------------文本图层相关状态----------------------
   // 用于管理所有文本图层
   List<TextLayerData> textLayers = [];
-
   // 用于临时存储当前正在输入的文本
   String _editingText = '';
+  // [新增] 核心状态：当前选中的文本图层ID
+  String? selectedTextLayerId;
+  // [新增] 拖动相关的临时状态
+  Offset? _dragTextStartPoint;
+  Offset? _initialLayerOffset;
+
 
   // ----------------- 手势和拖拽相关的临时状态 -----------------
   double _previousScale = 1.0;
@@ -201,6 +206,16 @@ class ImageEditorController extends ChangeNotifier {
   // ----------------- 手势处理逻辑 -----------------
 
   void onScaleStart(ScaleStartDetails details) {
+
+    // 优先处理文本拖动
+    if (selectTextLayerAt(details.localFocalPoint)) {
+      _dragTextStartPoint = details.localFocalPoint;
+      final selectedLayer = textLayers.firstWhere((l) => l.id == selectedTextLayerId);
+      _initialLayerOffset = selectedLayer.position;
+      return; // 命中文字，中断后续操作
+    }
+
+
     if (isCroppingActive) {
       _onCropDragStart(details.localFocalPoint);
     } else {
@@ -209,6 +224,15 @@ class ImageEditorController extends ChangeNotifier {
   }
 
   void onScaleUpdate(ScaleUpdateDetails details) {
+    // 如果有选中的文字，则执行拖动逻辑
+    if (selectedTextLayerId != null && _dragTextStartPoint != null && _initialLayerOffset != null) {
+      final dragDelta = details.localFocalPoint - _dragTextStartPoint!;
+      final selectedLayer = textLayers.firstWhere((l) => l.id == selectedTextLayerId);
+      selectedLayer.position = _initialLayerOffset! + dragDelta;
+      notifyListeners();
+      return;
+    }
+    // 如果没有文字 执行裁剪框逻辑
     if (isCroppingActive && _activeDragHandle != null) {
       _onCropDragUpdate(details.localFocalPoint);
     } else if (!isCroppingActive) {
@@ -221,10 +245,64 @@ class ImageEditorController extends ChangeNotifier {
   }
 
   void onScaleEnd(ScaleEndDetails details) {
+    // 清理文本拖动状态
+    if (selectedTextLayerId != null) {
+      _dragTextStartPoint = null;
+      _initialLayerOffset = null;
+    }
+
     if (isCroppingActive) {
       _onCropDragEnd();
     }
   }
+
+
+  // [新增] 单击事件处理，用于选择/取消选择
+  void onTapDown(TapDownDetails details) {
+    // 如果没有点中任何文字，则取消选择
+    if (!selectTextLayerAt(details.localPosition)) {
+      clearTextSelection();
+    }
+  }
+
+  // [新增] 文本图层操作方法
+
+  /// 根据点击位置选择文本图层，返回是否命中
+  bool selectTextLayerAt(Offset tapPosition) {
+    // 从最上层的图层开始检查
+    for (final layer in textLayers.reversed) {
+      final bounds = _getTextLayerBounds(layer);
+      if (bounds.contains(tapPosition)) {
+        selectedTextLayerId = layer.id;
+        notifyListeners();
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /// 清除文本选择
+  void clearTextSelection() {
+    selectedTextLayerId = null;
+    notifyListeners();
+  }
+
+  /// 更新选中图层的颜色
+  void updateSelectedTextColor(Color color) {
+    if (selectedTextLayerId == null) return;
+    final layer = textLayers.firstWhere((l) => l.id == selectedTextLayerId);
+    layer.color = color;
+    notifyListeners();
+  }
+
+  /// 更新选中图层的大小
+  void updateSelectedTextSize(double size) {
+    if (selectedTextLayerId == null) return;
+    final layer = textLayers.firstWhere((l) => l.id == selectedTextLayerId);
+    layer.fontSize = size;
+    notifyListeners();
+  }
+
 
   // ----------------- 私有方法：内部逻辑实现 -----------------
 
@@ -246,6 +324,31 @@ class ImageEditorController extends ChangeNotifier {
 
     textLayers.add(newLayer);
     _editingText = ''; // 清空临时文本
+  }
+
+
+  // [新增] 计算文本图层的边界框 (Rect)
+  Rect _getTextLayerBounds(TextLayerData layer) {
+    final paragraph = _buildParagraph(layer);
+    paragraph.layout(const ui.ParagraphConstraints(width: double.infinity));
+
+    // 增加一些触摸区域，方便用户点击
+    const padding = 16.0;
+    return Rect.fromCenter(
+      center: layer.position,
+      width: paragraph.width + padding,
+      height: paragraph.height + padding,
+    );
+  }
+
+  // [新增] 一个统一构建段落的辅助方法，避免代码重复
+  ui.Paragraph _buildParagraph(TextLayerData layer) {
+    final paragraphStyle = ui.ParagraphStyle(textAlign: TextAlign.center);
+    final textStyle = ui.TextStyle(color: layer.color, fontSize: layer.fontSize);
+    final paragraphBuilder = ui.ParagraphBuilder(paragraphStyle)
+      ..pushStyle(textStyle)
+      ..addText(layer.text);
+    return paragraphBuilder.build();
   }
 
 
@@ -413,6 +516,28 @@ class ImageEditorController extends ChangeNotifier {
     canvas.scale(_scale, _scale);
     canvas.drawImage(_image, Offset(-_image.width / 2, -_image.height / 2), paint);
     canvas.restore();
+
+    // --- 2. [核心新增] 绘制所有文本图层 (与 Painter 中的逻辑完全一致) ---
+    for (final layer in textLayers) {
+      // 创建段落样式
+      final paragraphStyle = ui.ParagraphStyle(textAlign: TextAlign.center);
+      // 创建文本样式
+      final textStyle = ui.TextStyle(color: layer.color, fontSize: layer.fontSize);
+      // 构建段落
+      final paragraphBuilder = ui.ParagraphBuilder(paragraphStyle)
+        ..pushStyle(textStyle)
+        ..addText(layer.text);
+      final paragraph = paragraphBuilder.build();
+      // 布局段落
+      paragraph.layout(ui.ParagraphConstraints(width: _canvasSize!.width));
+      // 计算绘制位置
+      final Offset textDrawPosition = Offset(
+        layer.position.dx - paragraph.width / 2,
+        layer.position.dy - paragraph.height / 2,
+      );
+      // 将文本绘制到导出用的 Canvas 上
+      canvas.drawParagraph(paragraph, textDrawPosition);
+    }
 
     final picture = recorder.endRecording();
     return await picture.toImage(_canvasSize!.width.toInt(), _canvasSize!.height.toInt());

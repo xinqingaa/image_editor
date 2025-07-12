@@ -80,40 +80,65 @@ class ImageEditorPainter extends CustomPainter {
 
   // [新增] 绘制文本图层的辅助方法
   void _drawTextLayers(Canvas canvas, Size size) {
-
     for (final layer in controller.textLayers) {
-      // 1. 创建段落样式
-      final paragraphStyle = ui.ParagraphStyle(
-        textAlign: TextAlign.center,
-        fontSize: layer.fontSize,
-      );
-
-      // 2. 创建文本样式
-      final textStyle = ui.TextStyle(
-        color: layer.color,
-        fontSize: layer.fontSize,
-        // 你可以在这里添加更多样式，如字体、粗细等
-      );
-
-      // 3. 构建段落
+      // 1. 构建段落
+      final paragraphStyle = ui.ParagraphStyle(textAlign: TextAlign.center);
+      final textStyle = ui.TextStyle(color: layer.color, fontSize: layer.fontSize);
       final paragraphBuilder = ui.ParagraphBuilder(paragraphStyle)
         ..pushStyle(textStyle)
         ..addText(layer.text);
-
       final paragraph = paragraphBuilder.build();
-
-      // 4. 布局段落，宽度不限
       paragraph.layout(ui.ParagraphConstraints(width: size.width));
 
-      // 5. 计算绘制位置
-      // 我们希望 layer.position 是文本的中心点
-      final Offset drawPosition = Offset(
+      // 获取文本的“内在”尺寸，而不是布局容器的尺寸。
+      final double intrinsicWidth = paragraph.minIntrinsicWidth;
+
+      // 2. 计算绘制位置
+      final drawPosition = Offset(
         layer.position.dx - paragraph.width / 2,
         layer.position.dy - paragraph.height / 2,
       );
 
-      // 6. 绘制段落到画布
+      // 3. 如果选中，绘制边框
+      if (layer.id == controller.selectedTextLayerId) {
+        const padding = 2.0;
+        final bounds = Rect.fromCenter(
+          center: layer.position,
+          width: intrinsicWidth + padding,
+          height: paragraph.height + padding,
+        );
+        final borderPaint = Paint()
+          ..color = Colors.white
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1;
+        _drawDashedRect(canvas, bounds, borderPaint);
+      }
+
+      // 4. 绘制文本
       canvas.drawParagraph(paragraph, drawPosition);
+    }
+  }
+
+  // [新增] 绘制虚线矩形的辅助方法
+  void _drawDashedRect(Canvas canvas, Rect rect, Paint paint) {
+    const double dashWidth = 8.0;
+    const double dashSpace = 4.0;
+
+    // Top line
+    for (double i = rect.left; i < rect.right; i += dashWidth + dashSpace) {
+      canvas.drawLine(Offset(i, rect.top), Offset(i + dashWidth, rect.top), paint);
+    }
+    // Bottom line
+    for (double i = rect.left; i < rect.right; i += dashWidth + dashSpace) {
+      canvas.drawLine(Offset(i, rect.bottom), Offset(i + dashWidth, rect.bottom), paint);
+    }
+    // Left line
+    for (double i = rect.top; i < rect.bottom; i += dashWidth + dashSpace) {
+      canvas.drawLine(Offset(rect.left, i), Offset(rect.left, i + dashWidth), paint);
+    }
+    // Right line
+    for (double i = rect.top; i < rect.bottom; i += dashWidth + dashSpace) {
+      canvas.drawLine(Offset(rect.right, i), Offset(rect.right, i + dashWidth), paint);
     }
   }
 

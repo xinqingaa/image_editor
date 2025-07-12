@@ -1,10 +1,12 @@
 // image_editor/lib/widgets/image_editor_view.dart
 
 import 'package:flutter/material.dart';
+import 'package:image_editor/widgets/toolbars/text_properties_toolbar.dart';
 import 'dart:ui' as ui;
 
 import '../controller/image_editor_controller.dart';
 
+import '../models/editor_models.dart';
 import 'painter.dart';
 import 'toolbars/active_tool_menu.dart';
 import 'toolbars/main_toolbar.dart';
@@ -50,11 +52,7 @@ class _ImageEditorViewState extends State<ImageEditorView> {
               Expanded(
                 child: _buildEditorCanvas(),
               ),
-              // 当前激活工具的子菜单 (如裁剪选项)
-              ActiveToolMenu(controller: _controller),
-              // 主工具栏 (裁剪、旋转、文字等)
-              const SizedBox(height: 12,),
-              MainToolbar(controller: _controller),
+              _buildBottomToolbars()
             ],
           ),
         );
@@ -71,6 +69,7 @@ class _ImageEditorViewState extends State<ImageEditorView> {
           return const Center(child: CircularProgressIndicator());
         }
         return GestureDetector(
+          onTapDown: _controller.onTapDown, // 处理文字图层
           onScaleStart: _controller.onScaleStart,
           onScaleUpdate: _controller.onScaleUpdate,
           onScaleEnd: _controller.onScaleEnd,
@@ -81,5 +80,19 @@ class _ImageEditorViewState extends State<ImageEditorView> {
         );
       },
     );
+  }
+
+  // [新增] 用于管理底部工具栏的显示逻辑
+  Widget _buildBottomToolbars() {
+    // 优先显示文本属性工具栏
+    if (_controller.selectedTextLayerId != null) {
+      return TextPropertiesToolbar(controller: _controller);
+    }
+    // 其次显示激活的工具菜单 (裁剪、旋转等)
+    if (_controller.activeTool != EditToolsMenu.none) {
+      return ActiveToolMenu(controller: _controller);
+    }
+    // 最后显示主工具栏
+    return MainToolbar(controller: _controller);
   }
 }
