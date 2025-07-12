@@ -1,5 +1,7 @@
 // image_editor/lib/widgets/painter.dart
 
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'dart:ui' as ui;
 import '../controller/image_editor_controller.dart';
@@ -120,27 +122,50 @@ class ImageEditorPainter extends CustomPainter {
   }
 
   // [新增] 绘制虚线矩形的辅助方法
+  // [已修复] 绘制虚线矩形的辅助方法
   void _drawDashedRect(Canvas canvas, Rect rect, Paint paint) {
     const double dashWidth = 8.0;
     const double dashSpace = 4.0;
+    final double totalDashLength = dashWidth + dashSpace;
 
     // Top line
-    for (double i = rect.left; i < rect.right; i += dashWidth + dashSpace) {
-      canvas.drawLine(Offset(i, rect.top), Offset(i + dashWidth, rect.top), paint);
+    for (double i = rect.left; i < rect.right; i += totalDashLength) {
+      canvas.drawLine(
+        Offset(i, rect.top),
+        // 确保终点不会超过矩形的右边界
+        Offset(math.min(i + dashWidth, rect.right), rect.top),
+        paint,
+      );
     }
     // Bottom line
-    for (double i = rect.left; i < rect.right; i += dashWidth + dashSpace) {
-      canvas.drawLine(Offset(i, rect.bottom), Offset(i + dashWidth, rect.bottom), paint);
+    for (double i = rect.left; i < rect.right; i += totalDashLength) {
+      canvas.drawLine(
+        Offset(i, rect.bottom),
+        // 确保终点不会超过矩形的右边界
+        Offset(math.min(i + dashWidth, rect.right), rect.bottom),
+        paint,
+      );
     }
     // Left line
-    for (double i = rect.top; i < rect.bottom; i += dashWidth + dashSpace) {
-      canvas.drawLine(Offset(rect.left, i), Offset(rect.left, i + dashWidth), paint);
+    for (double i = rect.top; i < rect.bottom; i += totalDashLength) {
+      canvas.drawLine(
+        Offset(rect.left, i),
+        // 确保终点不会超过矩形的下边界
+        Offset(rect.left, math.min(i + dashWidth, rect.bottom)),
+        paint,
+      );
     }
     // Right line
-    for (double i = rect.top; i < rect.bottom; i += dashWidth + dashSpace) {
-      canvas.drawLine(Offset(rect.right, i), Offset(rect.right, i + dashWidth), paint);
+    for (double i = rect.top; i < rect.bottom; i += totalDashLength) {
+      canvas.drawLine(
+        Offset(rect.right, i),
+        // 确保终点不会超过矩形的下边界
+        Offset(rect.right, math.min(i + dashWidth, rect.bottom)),
+        paint,
+      );
     }
   }
+
 
 
 
