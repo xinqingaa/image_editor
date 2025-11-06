@@ -43,7 +43,7 @@ class ImageEditorPainter extends CustomPainter {
   }
 
   void _drawCropUI(Canvas canvas, Size size, Rect currentCropRect, double handleRadius) {
-    final overlayPaint = Paint()..color = Colors.black.withOpacity(0.7);
+    final overlayPaint = Paint()..color = Colors.black.withValues(alpha: 0.7);
     final borderPaint = Paint()
       ..color = Colors.white
       ..strokeWidth = 1.5
@@ -60,7 +60,7 @@ class ImageEditorPainter extends CustomPainter {
 
     const int gridLines = 2;
     final gridPaint = Paint()
-      ..color = Colors.white.withOpacity(0.7)
+      ..color = Colors.white.withValues(alpha: 0.7)
       ..strokeWidth = 0.5;
     for (int i = 1; i <= gridLines; i++) {
       double x = currentCropRect.left + currentCropRect.width * i / (gridLines + 1);
@@ -171,7 +171,42 @@ class ImageEditorPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(ImageEditorPainter oldDelegate) {
-    // 因为UI是响应式地根据controller重建的，所以总是重绘是最安全和简单的
-    return true;
+    // 只有当关键状态发生变化时才重绘
+    final oldController = oldDelegate.controller;
+    final newController = controller;
+    
+    // 检查图片是否变化
+    if (oldController.image != newController.image) return true;
+    
+    // 检查旋转角度是否变化
+    if (oldController.currentRotationAngle != newController.currentRotationAngle) return true;
+    
+    // 检查缩放是否变化
+    if ((oldController.scale - newController.scale).abs() > 0.001) return true;
+    
+    // 检查裁剪框是否变化
+    if (oldController.cropRect != newController.cropRect) return true;
+    
+    // 检查工具是否变化
+    if (oldController.activeTool != newController.activeTool) return true;
+    
+    // 检查文本图层是否变化
+    if (oldController.textLayers.length != newController.textLayers.length) return true;
+    if (oldController.selectedTextLayerId != newController.selectedTextLayerId) return true;
+    
+    // 检查文本图层内容是否变化（简化检查：只检查数量和选中状态）
+    for (int i = 0; i < oldController.textLayers.length; i++) {
+      final oldLayer = oldController.textLayers[i];
+      final newLayer = newController.textLayers[i];
+      if (oldLayer.id != newLayer.id ||
+          oldLayer.text != newLayer.text ||
+          oldLayer.position != newLayer.position ||
+          oldLayer.color != newLayer.color ||
+          (oldLayer.fontSize - newLayer.fontSize).abs() > 0.1) {
+        return true;
+      }
+    }
+    
+    return false;
   }
 }

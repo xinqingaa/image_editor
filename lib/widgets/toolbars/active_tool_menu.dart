@@ -51,7 +51,7 @@ class ActiveToolMenu extends StatelessWidget {
           IconButton(
             highlightColor: Colors.grey[800] ,
             onPressed: () async => await controller.applyCurrentTool(),
-            icon: Icon(Icons.check,  size: 20, color: Colors.grey)
+            icon: Icon(Icons.check,  size: 20, color: Colors.orange)
           ),
         ],
       ),

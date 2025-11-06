@@ -1,10 +1,13 @@
-// image_editor/lib/controller/image_editor_controller.dart
-
 import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import '../models/editor_models.dart';
+import 'history_manager.dart';
+import 'text_layer_manager.dart';
+import 'crop_handler.dart';
+import 'rotation_handler.dart';
+
 
 /// 图片编辑器控制器
 /// 继承自 ChangeNotifier，用于管理所有编辑状态和业务逻辑。
@@ -38,12 +41,12 @@ class ImageEditorController extends ChangeNotifier {
   bool get isCroppingActive => isCropTool(_activeTool);
 
   // -----------------文本图层相关状态----------------------
-  // 用于管理所有文本图层
-  List<TextLayerData> textLayers = [];
+  // 获取文本图层列表（委托给 TextLayerManager，保持向后兼容）
+  List<TextLayerData> get textLayers => _textLayerManager.layers;
   // 用于临时存储当前正在输入的文本
   String _editingText = '';
-  // [新增] 核心状态：当前选中的文本图层ID
-  String? selectedTextLayerId;
+  // [新增] 核心状态：当前选中的文本图层ID（委托给 TextLayerManager）
+  String? get selectedTextLayerId => _textLayerManager.selectedLayerId;
   // [新增] 拖动相关的临时状态
   Offset? _dragTextStartPoint;
   Offset? _initialLayerOffset;
@@ -66,8 +69,22 @@ class ImageEditorController extends ChangeNotifier {
   Rect? _backupCropRect;
   double _backupRotationAngle = 0.0;
 
+  // --- [历史状态管理] ---
+  /// 原始图片（最初加载的图片）
+  final ui.Image _originalImage;
+  
+
+  // --- [组合模式：Handler 和 Manager 实例] ---
+  /// 历史记录管理器
+  final HistoryManager _historyManager = HistoryManager();
+  
+  /// 文本图层管理器
+  final TextLayerManager _textLayerManager = TextLayerManager();
+
   /// 构造函数，需要传入一个初始图片
-  ImageEditorController({required ui.Image image}) : _image = image;
+  ImageEditorController({required ui.Image image}) 
+      : _image = image,
+        _originalImage = image;
 
   /// UI层在布局完成后需要调用此方法设置画布尺寸
   void setCanvasSize(Size size) {
@@ -91,17 +108,16 @@ class ImageEditorController extends ChangeNotifier {
 
   void _initializeImageScale() {
     if (_canvasSize == null) return;
-    // 1. 定义安全区域的缩放系数
-    const double paddingFactor = 0.92;
-    // 2. 计算出用于缩放的目标尺寸 (比实际画布小)
-    final double targetWidth = _canvasSize!.width * paddingFactor;
-    final double targetHeight = _canvasSize!.height * paddingFactor;
-    // 3. 基于目标尺寸计算宽度和高度的缩放比
+    // 1. 直接使用画布的完整尺寸，让图片占满100%
+    final double targetWidth = _canvasSize!.width;
+    final double targetHeight = _canvasSize!.height;
+    // 2. 基于目标尺寸计算宽度和高度的缩放比
     final double widthRatio = targetWidth / _image.width;
     final double heightRatio = targetHeight / _image.height;
-    // 4. 取两个比例中较小的一个，以确保图片完整显示在目标区域内，并保持其原始宽高比
+    // 3. 取两个比例中较小的一个，以确保图片完整显示在目标区域内，并保持其原始宽高比
+    // 这样限制方向会占满100%
     _scale = math.min(widthRatio, heightRatio);
-    // 5. 通知UI更新
+    // 4. 通知UI更新
     notifyListeners();
   }
 
@@ -118,6 +134,91 @@ class ImageEditorController extends ChangeNotifier {
     notifyListeners();
   }
 
+  // --- [历史状态管理方法] ---
+
+  /// 保存当前状态到历史快照
+  void _saveStateSnapshot() {
+    _historyManager.saveSnapshot(
+      image: _image,
+      textLayers: _textLayerManager.copyLayers(),
+      rotationAngle: _currentRotationAngle,
+      scale: 0.0, // scale 会在回退时根据恢复的图片尺寸重新计算，这里保存0作为占位符
+    );
+  }
+
+  /// 检查是否可以回退（是否有历史记录）
+  bool get canUndo => _historyManager.canUndo;
+
+  /// 检查是否可以完全撤销（是否与原始状态不同）
+  bool get canResetToOriginal {
+    // 检查图片是否不同
+    if (_image != _originalImage) {
+      return true;
+    }
+    // 检查是否有文本图层
+    if (!_textLayerManager.isEmpty) {
+      return true;
+    }
+    // 检查是否有旋转
+    if (_currentRotationAngle != 0.0) {
+      return true;
+    }
+    // 检查缩放是否不是初始值（虽然初始值会在_initializeImageScale中计算，但这里检查是否为1.0）
+    // 实际上，scale会在_initializeImageScale中重新计算，所以这里主要检查其他状态
+    return false;
+  }
+
+  /// 完全撤销：重置到原始图片和初始状态
+  void resetToOriginal() {
+    _image = _originalImage;
+    _currentRotationAngle = 0.0;
+    _translateX = 0.0;
+    _translateY = 0.0;
+    _scale = 1.0;
+    _textLayerManager.clear();
+    _cropRect = null;
+    _backupCropRect = null;
+    _activeTool = EditToolsMenu.none;
+    
+    // 清空历史记录
+    _historyManager.clear();
+    
+    // 重新初始化缩放
+    if (_canvasSize != null) {
+      _initializeImageScale();
+    }
+    notifyListeners();
+  }
+
+  /// 回退：撤销最后一次应用的操作
+  void undoLastOperation() {
+    final snapshot = _historyManager.popSnapshot();
+    if (snapshot == null) {
+      return;
+    }
+
+    // 恢复状态
+    _image = snapshot.image;
+    _currentRotationAngle = snapshot.rotationAngle;
+    // 注意：不直接恢复 _scale，因为它是根据图片尺寸和画布尺寸动态计算的
+    // 恢复图片后需要重新计算 _scale
+    
+    // 恢复文本图层（委托给 TextLayerManager）
+    _textLayerManager.restoreLayers(snapshot.textLayers);
+    
+    // 清除选择状态
+    _cropRect = null;
+    _backupCropRect = null;
+    _activeTool = EditToolsMenu.none;
+
+    // 恢复图片后，重新计算缩放以适应画布
+    // 这是必要的，因为图片尺寸可能已经改变了（裁剪或旋转后）
+    if (_canvasSize != null) {
+      _initializeImageScale();
+    }
+    notifyListeners();
+  }
+
 
   // 一个公共方法，让 TextToolbar 可以更新正在编辑的文本
   void updateEditingText(String text) {
@@ -130,6 +231,23 @@ class ImageEditorController extends ChangeNotifier {
 
   /// 应用当前工具的修改
   Future<void> applyCurrentTool() async {
+    // 在应用操作前保存当前状态到历史快照
+    // 注意：对于旋转操作，应用后图片会旋转，角度会重置为0
+    // 所以保存快照时，应该保存应用前的图片和角度为0（因为应用后角度会重置为0）
+    if (isRotateTool(_activeTool)) {
+      // 对于旋转操作，保存旋转前的状态
+      // 应用旋转后，图片会旋转，角度会重置为0，所以保存角度为0
+      _historyManager.saveSnapshot(
+        image: _image,
+        textLayers: _textLayerManager.copyLayers(),
+        rotationAngle: 0.0, // 应用旋转后角度会重置为0，所以保存0
+        scale: 0.0, // scale 会在回退时重新计算，这里保存0作为占位符
+      );
+    } else {
+      // 对于其他操作（裁剪、文本），正常保存当前状态
+      _saveStateSnapshot();
+    }
+    
     if (isCropTool(_activeTool)) {
       await _applyCrop();
     } else if (isRotateTool(_activeTool)) {
@@ -223,12 +341,18 @@ class ImageEditorController extends ChangeNotifier {
   // ----------------- 手势处理逻辑 -----------------
 
   void onScaleStart(ScaleStartDetails details) {
-
     // 优先处理文本拖动
-    if (selectTextLayerAt(details.localFocalPoint)) {
+    final selectedId = _textLayerManager.selectLayerAt(
+      details.localFocalPoint,
+      _canvasSize ?? Size.zero,
+    );
+    if (selectedId != null) {
       _dragTextStartPoint = details.localFocalPoint;
-      final selectedLayer = textLayers.firstWhere((l) => l.id == selectedTextLayerId);
-      _initialLayerOffset = selectedLayer.position;
+      final selectedLayer = _textLayerManager.selectedLayer;
+      if (selectedLayer != null) {
+        _initialLayerOffset = selectedLayer.position;
+      }
+      notifyListeners();
       return; // 命中文字，中断后续操作
     }
 
@@ -242,10 +366,9 @@ class ImageEditorController extends ChangeNotifier {
 
   void onScaleUpdate(ScaleUpdateDetails details) {
     // 如果有选中的文字，则执行拖动逻辑
-    if (selectedTextLayerId != null && _dragTextStartPoint != null && _initialLayerOffset != null) {
+    if (_textLayerManager.hasSelection && _dragTextStartPoint != null && _initialLayerOffset != null) {
       final dragDelta = details.localFocalPoint - _dragTextStartPoint!;
-      final selectedLayer = textLayers.firstWhere((l) => l.id == selectedTextLayerId);
-      selectedLayer.position = _initialLayerOffset! + dragDelta;
+      _textLayerManager.updateSelectedLayerPosition(_initialLayerOffset! + dragDelta);
       notifyListeners();
       return;
     }
@@ -263,7 +386,7 @@ class ImageEditorController extends ChangeNotifier {
 
   void onScaleEnd(ScaleEndDetails details) {
     // 清理文本拖动状态
-    if (selectedTextLayerId != null) {
+    if (_textLayerManager.hasSelection) {
       _dragTextStartPoint = null;
       _initialLayerOffset = null;
     }
@@ -277,47 +400,58 @@ class ImageEditorController extends ChangeNotifier {
   // [新增] 单击事件处理，用于选择/取消选择
   void onTapDown(TapDownDetails details) {
     // 如果没有点中任何文字，则取消选择
-    if (!selectTextLayerAt(details.localPosition)) {
-      clearTextSelection();
+    final selectedId = _textLayerManager.selectLayerAt(
+      details.localPosition,
+      _canvasSize ?? Size.zero,
+    );
+    if (selectedId == null) {
+      _textLayerManager.clearSelection();
+      notifyListeners();
+    } else {
+      notifyListeners();
     }
   }
 
-  // [新增] 文本图层操作方法
+  // [新增] 文本图层操作方法（委托给 TextLayerManager）
 
   /// 根据点击位置选择文本图层，返回是否命中
   bool selectTextLayerAt(Offset tapPosition) {
-    // 从最上层的图层开始检查
-    for (final layer in textLayers.reversed) {
-      final bounds = _getTextLayerBounds(layer);
-      if (bounds.contains(tapPosition)) {
-        selectedTextLayerId = layer.id;
-        notifyListeners();
-        return true;
-      }
+    final selectedId = _textLayerManager.selectLayerAt(
+      tapPosition,
+      _canvasSize ?? Size.zero,
+    );
+    if (selectedId != null) {
+      notifyListeners();
+      return true;
     }
     return false;
   }
 
   /// 清除文本选择
   void clearTextSelection() {
-    selectedTextLayerId = null;
+    _textLayerManager.clearSelection();
     notifyListeners();
   }
 
   /// 更新选中图层的颜色
   void updateSelectedTextColor(Color color) {
-    if (selectedTextLayerId == null) return;
-    final layer = textLayers.firstWhere((l) => l.id == selectedTextLayerId);
-    layer.color = color;
-    notifyListeners();
+    if (_textLayerManager.updateSelectedLayerColor(color)) {
+      notifyListeners();
+    }
   }
 
   /// 更新选中图层的大小
   void updateSelectedTextSize(double size) {
-    if (selectedTextLayerId == null) return;
-    final layer = textLayers.firstWhere((l) => l.id == selectedTextLayerId);
-    layer.fontSize = size;
-    notifyListeners();
+    if (_textLayerManager.updateSelectedLayerSize(size)) {
+      notifyListeners();
+    }
+  }
+
+  /// 删除选中的文本图层
+  void deleteSelectedTextLayer() {
+    if (_textLayerManager.removeSelectedLayer()) {
+      notifyListeners();
+    }
   }
 
 
@@ -329,44 +463,18 @@ class ImageEditorController extends ChangeNotifier {
     if (_editingText.trim().isEmpty) {
       return;
     }
-    // 创建一个新的文本图层
-    final newLayer = TextLayerData(
-      id: DateTime.now().millisecondsSinceEpoch.toString(), // 使用时间戳作为唯一ID
+    // 使用 TextLayerManager 添加新图层
+    _textLayerManager.addLayer(
       text: _editingText,
-      // 默认放置在画布中心
-      position: canvasSize != null ? Offset(canvasSize!.width / 2, canvasSize!.height / 2) : Offset.zero,
+      position: canvasSize != null 
+          ? Offset(canvasSize!.width / 2, canvasSize!.height / 2) 
+          : Offset.zero,
       color: Colors.blue,
-      fontSize: 32.0
+      fontSize: 32.0,
     );
-
-    textLayers.add(newLayer);
     _editingText = ''; // 清空临时文本
   }
 
-
-  // [新增] 计算文本图层的边界框 (Rect)
-  Rect _getTextLayerBounds(TextLayerData layer) {
-    final paragraph = _buildParagraph(layer);
-    paragraph.layout(const ui.ParagraphConstraints(width: double.infinity));
-
-    // 增加一些触摸区域，方便用户点击
-    const padding = 16.0;
-    return Rect.fromCenter(
-      center: layer.position,
-      width: paragraph.width + padding,
-      height: paragraph.height + padding,
-    );
-  }
-
-  // [新增] 一个统一构建段落的辅助方法，避免代码重复
-  ui.Paragraph _buildParagraph(TextLayerData layer) {
-    final paragraphStyle = ui.ParagraphStyle(textAlign: TextAlign.center);
-    final textStyle = ui.TextStyle(color: layer.color, fontSize: layer.fontSize);
-    final paragraphBuilder = ui.ParagraphBuilder(paragraphStyle)
-      ..pushStyle(textStyle)
-      ..addText(layer.text);
-    return paragraphBuilder.build();
-  }
 
 
   /// [替换旧的_captureCroppedImage]
@@ -433,220 +541,155 @@ class ImageEditorController extends ChangeNotifier {
     _backupCropRect = null;
   }
 
-  // 应用裁剪
-  // Future<void> _applyCrop() async {
-  //   if (_cropRect == null || _canvasSize == null) return;
-  //
-  //   // 1. 计算将图像坐标映射到屏幕坐标的变换矩阵
-  //   final Matrix4 matrixToScreen = Matrix4.identity()
-  //     ..translate(_canvasSize!.width / 2, _canvasSize!.height / 2)
-  //     ..rotateZ(_currentRotationAngle)
-  //     ..scale(_scale, _scale)
-  //     ..translate(-_image.width / 2, -_image.height / 2);
-  //
-  //   // 2. 计算其逆矩阵，用于将屏幕坐标映射回原始图像坐标
-  //   final Matrix4 screenToImage = Matrix4.inverted(matrixToScreen);
-  //
-  //   // 3. 将屏幕上的裁剪框的四个角通过逆矩阵转换到原始图像的坐标系中
-  //   final Offset srcTopLeft = MatrixUtils.transformPoint(screenToImage, _cropRect!.topLeft);
-  //   final Offset srcTopRight = MatrixUtils.transformPoint(screenToImage, _cropRect!.topRight);
-  //   final Offset srcBottomLeft = MatrixUtils.transformPoint(screenToImage, _cropRect!.bottomLeft);
-  //   final Offset srcBottomRight = MatrixUtils.transformPoint(screenToImage, _cropRect!.bottomRight);
-  //
-  //   // 4. 根据转换后的四个点，计算出在原始图像上对应的源矩形(srcRect)
-  //   // 这个矩形包围了用户在屏幕上选择的区域在原图上的所有像素
-  //   final double srcLeft = math.min(srcTopLeft.dx, math.min(srcTopRight.dx, math.min(srcBottomLeft.dx, srcBottomRight.dx)));
-  //   final double srcTop = math.min(srcTopLeft.dy, math.min(srcTopRight.dy, math.min(srcBottomLeft.dy, srcBottomRight.dy)));
-  //   final double srcRight = math.max(srcTopLeft.dx, math.max(srcTopRight.dx, math.max(srcBottomLeft.dx, srcBottomRight.dx)));
-  //   final double srcBottom = math.max(srcTopLeft.dy, math.max(srcTopRight.dy, math.max(srcBottomLeft.dy, srcBottomRight.dy)));
-  //   final Rect srcRect = Rect.fromLTRB(srcLeft, srcTop, srcRight, srcBottom);
-  //
-  //   // 5. 准备进行高精度绘制
-  //   final recorder = ui.PictureRecorder();
-  //   // 目标画布的大小就是屏幕上裁剪框的大小
-  //   final canvas = Canvas(recorder, Rect.fromLTWH(0, 0, _cropRect!.width, _cropRect!.height));
-  //
-  //   // 目标矩形(dstRect)覆盖整个新画布
-  //   final Rect dstRect = Rect.fromLTWH(0, 0, _cropRect!.width, _cropRect!.height);
-  //
-  //   // 使用最高质量的滤波
-  //   final Paint paint = Paint()..filterQuality = FilterQuality.high;
-  //
-  //   // 6. [魔法发生的地方] 使用 drawImageRect 从原始 _image 中提取 srcRect 的像素，
-  //   // 并将其绘制到新画布的 dstRect 区域。
-  //   // Flutter会处理好因旋转导致的倾斜矩形的采样问题。
-  //   canvas.drawImageRect(_image, srcRect, dstRect, paint);
-  //
-  //   // 7. 生成最终的高清裁剪图
-  //   // 注意：这里输出的图片尺寸是 _cropRect 的尺寸，但其像素密度是来自原图的，所以非常清晰。
-  //   final ui.Image croppedImage = await recorder.endRecording().toImage(
-  //     _cropRect!.width.round(),
-  //     _cropRect!.height.round(),
-  //   );
-  //
-  //   // 8. 用裁剪后的高清图片替换当前图片，并重置所有变换
-  //   resetTransformations(newImage: croppedImage);
-  //
-  //   // 清理裁剪状态
-  //   _cropRect = null;
-  //   _backupCropRect = null;
-  // }
-
-  ///  应用旋转
+  ///  应用旋转（委托给 RotationHandler）
   Future<void> _applyRotation() async {
     if (_currentRotationAngle == _backupRotationAngle) {
       // 如果角度没有变化，则无需操作
       return;
     }
-    // 渲染一个只应用了旋转的新图片
-    final rotatedImage = await _renderRotatedImage();
-    if (rotatedImage != null) {
-      // 用旋转后的图片替换，并重置所有变换
-      resetTransformations(newImage: rotatedImage);
-    }
+    // 使用 RotationHandler 渲染旋转后的图片
+    final rotatedImage = await RotationHandler.renderRotatedImage(
+      image: _image,
+      angle: _currentRotationAngle,
+    );
+    // 用旋转后的图片替换，并重置所有变换
+    resetTransformations(newImage: rotatedImage);
   }
 
 
-  /// [私有] 渲染一个只包含旋转变换的新图片
-  Future<ui.Image> _renderRotatedImage() async {
-    final angle = _currentRotationAngle;
-
-    // 计算旋转后新图片的边界框大小
-    final sinAngle = math.sin(angle).abs();
-    final cosAngle = math.cos(angle).abs();
-    final newWidth = _image.width * cosAngle + _image.height * sinAngle;
-    final newHeight = _image.width * sinAngle + _image.height * cosAngle;
-
-    final recorder = ui.PictureRecorder();
-    final canvas = Canvas(recorder, Rect.fromLTWH(0, 0, newWidth, newHeight));
-
-    // 将画布原点移动到新画布中心
-    canvas.translate(newWidth / 2, newHeight / 2);
-    // 旋转
-    canvas.rotate(angle);
-    // 将图片中心对齐到原点并绘制
-    canvas.drawImage(_image, Offset(-_image.width / 2, -_image.height / 2), Paint());
-
-    final picture = recorder.endRecording();
-    return await picture.toImage(newWidth.round(), newHeight.round());
-  }
-
-
-  /// 裁剪逻辑 会牺牲清晰度 会在缩放的基础上裁剪  本质上是在这个低分辨率的预览图上，再截取出一小块（_cropRect） 所以导致清晰度骤降
-  /// 问题根源：屏幕像素 vs. 图像像素
-  // 你之前的裁剪逻辑可以概括为：“对屏幕上的所见内容进行截图”。
-  // 缩放显示：一张高分辨率的图片（例如 4000x3000 像素）为了在手机屏幕（例如 1080x1920 像素）上完整显示，会被缩小。此时，控制器中的 _scale 变量可能是一个很小的值（比如 0.27）。
-  // 屏幕绘制：CustomPainter 使用这个 _scale 值将大图绘制到小小的画布上。在这个过程中，GPU/CPU 已经进行了像素合并和抗锯齿处理，屏幕上实际显示的图像已经是低分辨率的预览版本了。
-  // 错误裁剪：你之前的 _captureCroppedImage 方法，本质上是在这个低分辨率的预览图上，再截取出一小块（_cropRect）。
-  // 恶性循环：当你对一个已经缩小的预览图进行裁剪，得到的自然是分辨率极低的图像。例如，从一个被缩小到 1080x810 的预览图中裁剪一个 200x200 的区域，最终得到的图片就是 200x200 像素，而它在原始 4000x3000 的大图上可能对应的是 740x740 像素的区域。你丢失了大量的像素信息，导致清晰度断崖式下跌。
-  // 解决方案：反向映射与高精度裁剪
-  // 正确的做法是，我们必须始终从原始的、全分辨率的 _image 上提取像素数据。
-  // 具体步骤如下：
-  // 确定屏幕裁剪框：用户在屏幕上拖动选择的 _cropRect 是我们的目标区域。
-  // 计算变换矩阵：计算出将原始图像坐标映射到屏幕坐标的变换矩阵（matrixToScreen），这个矩阵包含了平移、旋转和缩放。
-  // 求逆矩阵：计算上一步矩阵的逆矩阵（screenToImage）。这个逆矩阵的魔力在于，它可以将屏幕坐标反向映射回原始图像的坐标。
-  // 映射裁剪框：使用这个逆矩阵，将屏幕上的 _cropRect 的四个顶点坐标，转换成原始 _image 上的对应坐标。
-  // 高精度绘制：使用 canvas.drawImageRect() 方法。这个强大的方法可以从源图像（_image）中，根据我们计算出的高精度源矩形（srcRect），精确地提取像素，并将其绘制到目标矩形（dstRect）中。
-  // 生成新图：最终生成的 ui.Image，其像素数据直接来源于原始大图，从而保留了最大的清晰度。
-  // 代码改动总结
-  // 删除了 _captureCroppedImage：这个方法是导致问题的根源，我们用新的实现完全替代了它。
-  // 重写了 _applyCrop：
-  // 它现在是所有高精度裁剪逻辑的核心。
-  // 通过矩阵求逆，将屏幕坐标 _cropRect 映射回原始图像坐标 srcRect。
-  // 使用 canvas.drawImageRect 和 FilterQuality.high 从全分辨率的 _image 中提取像素。
-  // 最终生成的新图片 croppedImage 拥有了它应有的全部清晰度。
-  // 其他文件：你的其他所有文件都不需要任何改动。
-  Future<ui.Image?> _captureCroppedImage() async {
-    // ... [此方法逻辑不变，依然是从屏幕视图中抠出cropRect区域] ...
-    if (_cropRect == null || !isCroppingActive || _canvasSize == null) return null;
-
-    final ui.PictureRecorder recorder = ui.PictureRecorder();
-    final Canvas captureCanvas = Canvas(recorder, Rect.fromLTWH(0, 0, _cropRect!.width.roundToDouble(), _cropRect!.height.roundToDouble()));
-
-    Matrix4 matrixToScreen = Matrix4.identity();
-    final double canvasWidgetCenterX = _canvasSize!.width / 2;
-    final double canvasWidgetCenterY = _canvasSize!.height / 2;
-
-    matrixToScreen.translate(canvasWidgetCenterX, canvasWidgetCenterY);
-    matrixToScreen.rotateZ(_currentRotationAngle);
-    matrixToScreen.scale(_scale, _scale);
-    matrixToScreen.translate(-_image.width / 2, -_image.height / 2);
-
-    Matrix4 finalTransformForCapture = Matrix4.translationValues(-_cropRect!.left, -_cropRect!.top, 0);
-    finalTransformForCapture.multiply(matrixToScreen);
-
-    captureCanvas.transform(finalTransformForCapture.storage);
-    captureCanvas.drawImage(_image, Offset.zero, Paint());
-
-    final ui.Picture picture = recorder.endRecording();
-    return await picture.toImage(_cropRect!.width.toInt(), _cropRect!.height.toInt());
-  }
 
   /// [新增] 捕获当前所有变换（旋转、缩放、平移）后的最终图像
+  /// 使用原图像素尺寸保持高清晰度
   Future<ui.Image> _captureTransformedImage() async {
-    final recorder = ui.PictureRecorder();
-    final canvas = Canvas(recorder, Rect.fromLTWH(0, 0, _canvasSize!.width, _canvasSize!.height));
+    // 1. 计算旋转后图片的边界框尺寸（使用原图像素尺寸）
+    final angle = _currentRotationAngle;
+    final sinAngle = math.sin(angle).abs();
+    final cosAngle = math.cos(angle).abs();
+    final rotatedWidth = _image.width * cosAngle + _image.height * sinAngle;
+    final rotatedHeight = _image.width * sinAngle + _image.height * cosAngle;
 
-    // 完全复制 painter 中的绘制逻辑
-    final paint = Paint();
-    final canvasCenterX = _canvasSize!.width / 2;
-    final canvasCenterY = _canvasSize!.height / 2;
+    // 2. 计算屏幕到像素的缩放比例
+    // 屏幕上的图片尺寸 = 原图尺寸 * scale
+    // 所以像素坐标 = 屏幕坐标 / scale
+    final double pixelScale = 1.0 / _scale;
+
+    // 3. 计算导出画布的尺寸（使用原图像素尺寸）
+    final int exportWidth = rotatedWidth.round();
+    final int exportHeight = rotatedHeight.round();
+
+    // 4. 创建高分辨率画布
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(recorder, Rect.fromLTWH(0, 0, exportWidth.toDouble(), exportHeight.toDouble()));
+
+    // 5. 绘制变换后的图片（使用高保真绘制）
+    final paint = Paint()..filterQuality = FilterQuality.high;
+    final canvasCenterX = exportWidth / 2;
+    final canvasCenterY = exportHeight / 2;
     canvas.save();
     canvas.translate(canvasCenterX, canvasCenterY);
-    canvas.rotate(_currentRotationAngle);
-    canvas.scale(_scale, _scale);
+    canvas.rotate(angle);
+    // 注意：这里不应用scale，因为我们已经在像素坐标系中
     canvas.drawImage(_image, Offset(-_image.width / 2, -_image.height / 2), paint);
     canvas.restore();
 
-    // --- 2. [核心新增] 绘制所有文本图层 (与 Painter 中的逻辑完全一致) ---
+    // 6. 绘制所有文本图层（需要将屏幕坐标转换为像素坐标）
+    // 计算从图片坐标系到屏幕坐标系的变换矩阵（与 _captureHiResCroppedImage 中的逻辑一致）
+    final Matrix4 imageToScreenMatrix = Matrix4.identity();
+    imageToScreenMatrix.translate(_canvasSize!.width / 2, _canvasSize!.height / 2);
+    imageToScreenMatrix.rotateZ(_currentRotationAngle);
+    imageToScreenMatrix.scale(_scale, _scale);
+    imageToScreenMatrix.translate(-_image.width / 2, -_image.height / 2);
+    // 求逆矩阵，得到从屏幕坐标系到图片坐标系的变换
+    final Matrix4 screenToImageMatrix = Matrix4.inverted(imageToScreenMatrix);
+    
+    // 计算从图片坐标系到导出画布坐标系的变换矩阵
+    final Matrix4 imageToExportMatrix = Matrix4.identity();
+    imageToExportMatrix.translate(exportWidth / 2, exportHeight / 2);
+    imageToExportMatrix.rotateZ(angle);
+    imageToExportMatrix.translate(-_image.width / 2, -_image.height / 2);
+    
     for (final layer in textLayers) {
       // 创建段落样式
       final paragraphStyle = ui.ParagraphStyle(textAlign: TextAlign.center);
-      // 创建文本样式
-      final textStyle = ui.TextStyle(color: layer.color, fontSize: layer.fontSize);
+      // 创建文本样式（字体大小也需要按比例缩放）
+      final textStyle = ui.TextStyle(
+        color: layer.color,
+        fontSize: layer.fontSize * pixelScale,
+      );
       // 构建段落
       final paragraphBuilder = ui.ParagraphBuilder(paragraphStyle)
         ..pushStyle(textStyle)
         ..addText(layer.text);
       final paragraph = paragraphBuilder.build();
-      // 布局段落
-      paragraph.layout(ui.ParagraphConstraints(width: _canvasSize!.width));
+      // 布局段落（使用像素尺寸）
+      paragraph.layout(ui.ParagraphConstraints(width: exportWidth.toDouble()));
+      
+      // 将屏幕坐标转换为图片坐标，再转换为导出画布坐标
+      final imagePos = MatrixUtils.transformPoint(screenToImageMatrix, layer.position);
+      final exportPos = MatrixUtils.transformPoint(imageToExportMatrix, imagePos);
+      
       // 计算绘制位置
       final Offset textDrawPosition = Offset(
-        layer.position.dx - paragraph.width / 2,
-        layer.position.dy - paragraph.height / 2,
+        exportPos.dx - paragraph.width / 2,
+        exportPos.dy - paragraph.height / 2,
       );
       // 将文本绘制到导出用的 Canvas 上
       canvas.drawParagraph(paragraph, textDrawPosition);
     }
 
     final picture = recorder.endRecording();
-    return await picture.toImage(_canvasSize!.width.toInt(), _canvasSize!.height.toInt());
+    return await picture.toImage(exportWidth, exportHeight);
+  }
+
+  /// 计算旋转后图片在屏幕上的实际显示边界框
+  /// 返回一个 Rect，表示图片在屏幕坐标系中的实际显示区域
+  Rect _getImageDisplayBounds() {
+    if (_canvasSize == null) {
+      return Rect.zero;
+    }
+
+    // 1. 图片的四个角在图片坐标系中的坐标
+    final double halfWidth = _image.width / 2;
+    final double halfHeight = _image.height / 2;
+    final List<Offset> imageCorners = [
+      Offset(-halfWidth, -halfHeight), // 左上
+      Offset(halfWidth, -halfHeight),  // 右上
+      Offset(-halfWidth, halfHeight),  // 左下
+      Offset(halfWidth, halfHeight),   // 右下
+    ];
+
+    // 2. 构建从图片坐标系到屏幕坐标系的变换矩阵
+    final Matrix4 imageToScreenMatrix = Matrix4.identity();
+    imageToScreenMatrix.translate(_canvasSize!.width / 2, _canvasSize!.height / 2);
+    imageToScreenMatrix.rotateZ(_currentRotationAngle);
+    imageToScreenMatrix.scale(_scale, _scale);
+
+    // 3. 将图片的四个角变换到屏幕坐标系
+    final List<Offset> screenCorners = imageCorners.map((corner) {
+      return MatrixUtils.transformPoint(imageToScreenMatrix, corner);
+    }).toList();
+
+    // 4. 计算边界框
+    final double minX = screenCorners.map((p) => p.dx).reduce(math.min);
+    final double maxX = screenCorners.map((p) => p.dx).reduce(math.max);
+    final double minY = screenCorners.map((p) => p.dy).reduce(math.min);
+    final double maxY = screenCorners.map((p) => p.dy).reduce(math.max);
+
+    return Rect.fromLTRB(minX, minY, maxX, maxY);
   }
 
   void _initializeCropRect({double? aspectRatio}) {
     if (_canvasSize == null) return;
 
-    final double initialCropWidth;
-    final double initialCropHeight;
+    // 获取图片的实际显示边界
+    final Rect imageBounds = _getImageDisplayBounds();
 
-    if (aspectRatio != null) {
-      double w = _canvasSize!.width * 0.8;
-      double h = w / aspectRatio;
-      if (h > _canvasSize!.height * 0.8) {
-        h = _canvasSize!.height * 0.8;
-        w = h * aspectRatio;
-      }
-      initialCropWidth = w;
-      initialCropHeight = h;
-    } else {
-      initialCropWidth = math.min(_canvasSize!.width, _canvasSize!.height) * 0.8;
-      initialCropHeight = initialCropWidth;
-    }
-
-    final double left = (_canvasSize!.width - initialCropWidth) / 2;
-    final double top = (_canvasSize!.height - initialCropHeight) / 2;
-    _cropRect = Rect.fromLTWH(left, top, initialCropWidth, initialCropHeight);
+    // 使用 CropHandler 初始化裁剪框
+    _cropRect = CropHandler.initializeCropRect(
+      canvasSize: _canvasSize!,
+      imageBounds: imageBounds,
+      aspectRatio: aspectRatio,
+    );
   }
 
   void _onCropDragStart(Offset localPosition) {
@@ -669,11 +712,7 @@ class ImageEditorController extends ChangeNotifier {
 
     Rect newRect = _cropRect!;
     final double? aspectRatio = _getCurrentAspectRatio();
-    final Size canvasSize = _canvasSize!;
 
-    // =======================================================================
-    // == 完整复制并迁移你原来的 _onCropDragUpdate 核心逻辑
-    // =======================================================================
     switch (_activeDragHandle!) {
       case DragHandlePosition.inside:
         if (_initialCropRectOffsetForDrag != null) {
@@ -937,11 +976,18 @@ class ImageEditorController extends ChangeNotifier {
           newRect = Rect.fromLTWH(fixedLeft, fixedTop, tentativeWidth, tentativeHeight);
           break;
         }
-      default:
-        break;
-    }
+      }
 
-    _cropRect = _clampRectToCanvas(newRect, canvasSize);
+    // 使用图片的实际显示边界来限制裁剪框
+    final Rect imageBounds = _getImageDisplayBounds();
+    _cropRect = CropHandler.clampRectToImageBounds(
+      rect: newRect,
+      imageBounds: imageBounds,
+      rotationAngle: _currentRotationAngle,
+      canvasSize: _canvasSize!,
+      scale: _scale,
+      image: _image,
+    );
   }
 
   void _onCropDragEnd() {
@@ -951,25 +997,10 @@ class ImageEditorController extends ChangeNotifier {
     notifyListeners();
   }
 
-  Rect _clampRectToCanvas(Rect rect, Size canvasSize) {
-    double left = rect.left.clamp(0.0, canvasSize.width - rect.width);
-    double top = rect.top.clamp(0.0, canvasSize.height - rect.height);
-    double width = rect.width.clamp(_minCropSize, canvasSize.width - left);
-    double height = rect.height.clamp(_minCropSize, canvasSize.height - top);
-    return Rect.fromLTWH(left, top, width, height);
-  }
+
 
   double? _getCurrentAspectRatio() {
-    switch (_activeTool) {
-      case EditToolsMenu.crop16_9:
-        return 16.0 / 9.0;
-      case EditToolsMenu.crop5_4:
-        return 5.0 / 4.0;
-      case EditToolsMenu.crop1_1:
-        return 1.0;
-      default:
-        return null;
-    }
+    return CropHandler.getAspectRatio(_activeTool);
   }
 
   DragHandlePosition? _getDragHandleForPosition(Offset position, Rect cropRect, double handleTouchRadius) {

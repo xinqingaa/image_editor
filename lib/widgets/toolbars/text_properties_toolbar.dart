@@ -26,6 +26,17 @@ class TextPropertiesToolbar extends StatelessWidget {
           _buildColorPicker(),
           // 字体大小滑块
           _buildSizeSlider(selectedLayer.fontSize),
+          // 删除按钮
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8.0),
+            child: IconButton(
+              icon: const Icon(Icons.delete, color: Colors.red),
+              onPressed: () {
+                controller.deleteSelectedTextLayer();
+              },
+              tooltip: '删除文本',
+            ),
+          ),
         ],
       ),
     );

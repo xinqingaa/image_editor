@@ -20,12 +20,13 @@ class MainToolbar extends StatelessWidget {
         right: 16,
         bottom: MediaQuery.of(context).padding.bottom + 20,
       ),
-      child: Row(
+      child:  Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text("取消", style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: Colors.grey[200])),
+          IconButton(
+            icon: Icon(Icons.refresh, color: controller.canResetToOriginal ? Colors.white : Colors.grey[600]),
+            onPressed: controller.canResetToOriginal ? () => controller.resetToOriginal() : null,
+            tooltip: '撤销（重置到原始状态）',
           ),
           _buildToolButton(
             context,
@@ -45,27 +46,10 @@ class MainToolbar extends StatelessWidget {
             icon: Icons.text_fields,
             isActive: controller.activeTool == EditToolsMenu.text,
           ),
-          TextButton(
-            // onPressed: () async {
-            //   final resultImage = await controller.exportImage();
-            //   if (resultImage != null && controller.isCroppingActive) {
-            //     // 如果是裁剪操作，用新图片替换并重置状态
-            //     controller.selectTool(EditToolsMenu.none); // 退出裁剪模式
-            //     controller.resetTransformations(newImage: resultImage);
-            //     // 这里可以选择是继续编辑还是直接返回
-            //     // 按照你原来的逻辑，是直接返回
-            //     Navigator.pop(context, resultImage);
-            //   } else {
-            //     // 其他情况（或非裁剪完成），直接返回结果
-            //     Navigator.pop(context, resultImage);
-            //   }
-            // },
-            onPressed: () async {
-              // "完成"按钮现在只负责导出最终图像
-              final resultImage = await controller.exportImage();
-              Navigator.pop(context, resultImage);
-            },
-            child: const Text("导出", style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white)),
+          IconButton(
+            icon: Icon(Icons.undo, color: controller.canUndo ? Colors.white : Colors.grey[600]),
+            onPressed: controller.canUndo ? () => controller.undoLastOperation() : null,
+            tooltip: '回退（撤销上一次操作）',
           ),
         ],
       ),

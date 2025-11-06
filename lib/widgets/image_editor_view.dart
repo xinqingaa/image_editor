@@ -10,6 +10,7 @@ import '../models/editor_models.dart';
 import 'painter.dart';
 import 'toolbars/active_tool_menu.dart';
 import 'toolbars/main_toolbar.dart';
+import 'toolbars/top_toolbar.dart';
 
 
 /// 图片编辑器主视图 Widget
@@ -53,7 +54,14 @@ class _ImageEditorViewState extends State<ImageEditorView> {
               Positioned.fill(
                 child: _buildEditorCanvas(),
               ),
-              // 工具栏将作为浮层，定位在底部
+              // 顶部工具栏
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                child: TopToolbar(controller: _controller),
+              ),
+              // 底部工具栏将作为浮层，定位在底部
               Positioned(
                 bottom: 0,
                 left: 0,
