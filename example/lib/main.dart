@@ -56,41 +56,43 @@ class _MyHomePageState extends State<MyHomePage> {
       appBar: AppBar(
         title: const Text('Image Editor '),
       ),
-      body: SingleChildScrollView(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            _buildImageDisplay(),
-            const SizedBox(height: 24),
-            ElevatedButton(
-              // 如果原始图片还未加载，则禁用按钮
-              onPressed: () async {
-                // 1. 加载图片
-                final ui.Image originalImage =
-                    await loadImageFromAssets('assets/sample.jpg');
-                setState(() {
-                  _originalImage = originalImage;
-                });
-                print('originalImage: $originalImage');
-                // 2. 导航到编辑器页面，并等待返回结果
-                final ui.Image? result = await Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => ImageEditor(image: originalImage),
-                  ),
-                );
-                print('result: $result');
-
-                if (result != null) {
+      body: SafeArea(
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: <Widget>[
+              _buildImageDisplay(),
+              const SizedBox(height: 24),
+              ElevatedButton(
+                // 如果原始图片还未加载，则禁用按钮
+                onPressed: () async {
+                  // 1. 加载图片
+                  final ui.Image originalImage =
+                      await loadImageFromAssets('assets/sample.jpg');
                   setState(() {
-                    _editedImage = result;
+                    _originalImage = originalImage;
                   });
-                }
-              },
-              child: const Text('打开编辑器'),
-            ),
-          ],
-        ),
+                  print('originalImage: $originalImage');
+                  // 2. 导航到编辑器页面，并等待返回结果
+                  final ui.Image? result = await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => ImageEditor(image: originalImage),
+                    ),
+                  );
+                  print('result: $result');
+
+                  if (result != null) {
+                    setState(() {
+                      _editedImage = result;
+                    });
+                  }
+                },
+                child: const Text('打开编辑器'),
+              ),
+            ],
+          ),
+        )
       ),
     );
   }

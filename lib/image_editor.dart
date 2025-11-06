@@ -1,6 +1,4 @@
-// image_editor/lib/image_editor.dart
-
-library image_editor;
+library;
 
 import 'package:flutter/material.dart';
 import 'dart:ui' as ui;
