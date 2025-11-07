@@ -15,6 +15,76 @@ enum EditToolsMenu {
   text,
 }
 
+/// 图片编辑器的配置入口
+class ImageEditorConfig {
+  /// 是否启用裁剪工具
+  final bool enableCrop;
+
+  /// 是否启用旋转工具
+  final bool enableRotate;
+
+  /// 是否启用文本工具
+  final bool enableText;
+
+  /// 裁剪菜单中各选项的启用状态
+  final CropOptionConfig cropOptions;
+
+  /// 顶部工具栏的文案与颜色配置
+  final TopToolbarConfig topToolbar;
+
+  const ImageEditorConfig({
+    this.enableCrop = true,
+    this.enableRotate = true,
+    this.enableText = true,
+    this.cropOptions = const CropOptionConfig(),
+    this.topToolbar = const TopToolbarConfig(),
+  });
+
+  /// 是否至少启用了一个裁剪选项
+  bool get hasEnabledCropOption =>
+      cropOptions.enableFree ||
+      cropOptions.enable16By9 ||
+      cropOptions.enable5By4 ||
+      cropOptions.enable1By1;
+}
+
+/// 裁剪选项配置
+class CropOptionConfig {
+  final bool enableFree;
+  final bool enable16By9;
+  final bool enable5By4;
+  final bool enable1By1;
+
+  const CropOptionConfig({
+    this.enableFree = true,
+    this.enable16By9 = true,
+    this.enable5By4 = true,
+    this.enable1By1 = true,
+  });
+}
+
+/// 顶部工具栏配置
+class TopToolbarConfig {
+  final String? cancelText;
+  final String? titleText;
+  final String? confirmText;
+
+  final Color? cancelTextColor;
+  final Color? titleTextColor;
+  final Color? confirmTextColor;
+  final Color? backgroundColor;
+
+  const TopToolbarConfig({
+    this.cancelText,
+    this.titleText,
+    this.confirmText,
+    this.cancelTextColor,
+    this.titleTextColor,
+    this.confirmTextColor,
+    this.backgroundColor,
+  });
+}
+
 /// 裁剪框拖拽控制点的枚举
 enum DragHandlePosition {
   topLeft,

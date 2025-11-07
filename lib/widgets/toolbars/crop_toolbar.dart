@@ -11,6 +11,29 @@ class CropToolbar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final buttons = [
+      _CropOption(
+        tool: EditToolsMenu.cropFree,
+        icon: Icons.crop_free,
+        aspectRatio: null,
+      ),
+      _CropOption(
+        tool: EditToolsMenu.crop16_9,
+        icon: Icons.crop_16_9,
+        aspectRatio: 16 / 9,
+      ),
+      _CropOption(
+        tool: EditToolsMenu.crop5_4,
+        icon: Icons.crop_5_4,
+        aspectRatio: 5 / 4,
+      ),
+      _CropOption(
+        tool: EditToolsMenu.crop1_1,
+        icon: Icons.crop_square,
+        aspectRatio: 1 / 1,
+      ),
+    ].where((option) => controller.isToolEnabled(option.tool)).toList();
+
     return SizedBox(
       width: double.infinity,
       child: Column(
@@ -19,29 +42,15 @@ class CropToolbar extends StatelessWidget {
             scrollDirection: Axis.horizontal,
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                _buildCropButton(
-                  tool: EditToolsMenu.cropFree,
-                  icon: Icons.crop_free,
-                  aspectRatio: null,
-                ),
-                _buildCropButton(
-                  tool: EditToolsMenu.crop16_9,
-                  icon: Icons.crop_16_9,
-                  aspectRatio: 16 / 9,
-                ),
-                _buildCropButton(
-                  tool: EditToolsMenu.crop5_4,
-                  icon: Icons.crop_5_4,
-                  aspectRatio: 5 / 4,
-                ),
-                _buildCropButton(
-                  tool: EditToolsMenu.crop1_1,
-                  icon: Icons.crop_square,
-                  aspectRatio: 1 / 1,
-                ),
-
-              ],
+              children: buttons
+                  .map(
+                    (option) => _buildCropButton(
+                      tool: option.tool,
+                      icon: option.icon,
+                      aspectRatio: option.aspectRatio,
+                    ),
+                  )
+                  .toList(),
             ),
           ),
         ],
@@ -61,4 +70,16 @@ class CropToolbar extends StatelessWidget {
       ),
     );
   }
+}
+
+class _CropOption {
+  final EditToolsMenu tool;
+  final IconData icon;
+  final double? aspectRatio;
+
+  const _CropOption({
+    required this.tool,
+    required this.icon,
+    required this.aspectRatio,
+  });
 }

@@ -20,6 +20,8 @@ class ImageEditorController extends ChangeNotifier {
   EditToolsMenu _activeTool = EditToolsMenu.none;
   EditToolsMenu get activeTool => _activeTool;
 
+  final ImageEditorConfig config;
+
   Size? _canvasSize;
   Size? get canvasSize => _canvasSize;
 
@@ -82,9 +84,74 @@ class ImageEditorController extends ChangeNotifier {
   final TextLayerManager _textLayerManager = TextLayerManager();
 
   /// 构造函数，需要传入一个初始图片
-  ImageEditorController({required ui.Image image}) 
-      : _image = image,
+  ImageEditorController({
+    required ui.Image image,
+    this.config = const ImageEditorConfig(),
+  })  : _image = image,
         _originalImage = image;
+
+  bool get isCropFeatureEnabled =>
+      config.enableCrop && config.hasEnabledCropOption;
+
+  bool get isRotateFeatureEnabled => config.enableRotate;
+
+  bool get isTextFeatureEnabled => config.enableText;
+
+  bool _isBusy = false;
+  bool get isBusy => _isBusy;
+
+  void _setBusy(bool value) {
+    if (_isBusy == value) return;
+    _isBusy = value;
+    notifyListeners();
+  }
+
+  bool isToolEnabled(EditToolsMenu tool) {
+    if (tool == EditToolsMenu.none) {
+      return true;
+    }
+    if (isCropTool(tool)) {
+      if (!isCropFeatureEnabled) return false;
+      switch (tool) {
+        case EditToolsMenu.cropFree:
+          return config.cropOptions.enableFree;
+        case EditToolsMenu.crop16_9:
+          return config.cropOptions.enable16By9;
+        case EditToolsMenu.crop5_4:
+          return config.cropOptions.enable5By4;
+        case EditToolsMenu.crop1_1:
+          return config.cropOptions.enable1By1;
+        default:
+          return false;
+      }
+    }
+    if (isRotateTool(tool)) {
+      return isRotateFeatureEnabled;
+    }
+    if (tool == EditToolsMenu.text) {
+      return isTextFeatureEnabled;
+    }
+    return false;
+  }
+
+  EditToolsMenu? _resolveCropTool(EditToolsMenu tool) {
+    if (!isCropTool(tool)) return tool;
+    if (!isToolEnabled(tool)) {
+      // 选择第一个可用的裁剪选项
+      final candidates = <EditToolsMenu>[
+        EditToolsMenu.cropFree,
+        EditToolsMenu.crop16_9,
+        EditToolsMenu.crop5_4,
+        EditToolsMenu.crop1_1,
+      ];
+      try {
+        return candidates.firstWhere(isToolEnabled);
+      } catch (_) {
+        return null;
+      }
+    }
+    return tool;
+  }
 
   /// UI层在布局完成后需要调用此方法设置画布尺寸
   void setCanvasSize(Size size) {
@@ -231,6 +298,8 @@ class ImageEditorController extends ChangeNotifier {
 
   /// 应用当前工具的修改
   Future<void> applyCurrentTool() async {
+    if (_isBusy) return;
+    _setBusy(true);
     // 在应用操作前保存当前状态到历史快照
     // 注意：对于旋转操作，应用后图片会旋转，角度会重置为0
     // 所以保存快照时，应该保存应用前的图片和角度为0（因为应用后角度会重置为0）
@@ -248,21 +317,26 @@ class ImageEditorController extends ChangeNotifier {
       _saveStateSnapshot();
     }
     
-    if (isCropTool(_activeTool)) {
-      await _applyCrop();
-    } else if (isRotateTool(_activeTool)) {
-      await _applyRotation();
-    } else if (_activeTool == EditToolsMenu.text) {
-      // [新增] 处理添加文本的逻辑
-      _applyText();
+    try {
+      if (isCropTool(_activeTool)) {
+        await _applyCrop();
+      } else if (isRotateTool(_activeTool)) {
+        await _applyRotation();
+      } else if (_activeTool == EditToolsMenu.text) {
+        // [新增] 处理添加文本的逻辑
+        _applyText();
+      }
+      // 关闭工具菜单
+      _activeTool = EditToolsMenu.none;
+      notifyListeners();
+    } finally {
+      _setBusy(false);
     }
-    // 关闭工具菜单
-    _activeTool = EditToolsMenu.none;
-    notifyListeners();
   }
 
   /// 取消当前工具的修改
   void cancelCurrentTool() {
+    if (_isBusy) return;
     if (isCropTool(_activeTool)) {
       // 恢复裁剪框到进入工具前的状态
       _cropRect = _backupCropRect;
@@ -281,12 +355,25 @@ class ImageEditorController extends ChangeNotifier {
 
   /// 切换主工具
   void selectTool(EditToolsMenu tool) {
-    if (_activeTool == tool) {
+    EditToolsMenu? resolvedTool;
+    if (isCropTool(tool)) {
+      resolvedTool = _resolveCropTool(tool);
+    } else if (isRotateTool(tool) || tool == EditToolsMenu.text) {
+      resolvedTool = isToolEnabled(tool) ? tool : null;
+    } else {
+      resolvedTool = tool;
+    }
+
+    if (resolvedTool == null) {
+      return; // 所请求的工具被禁用
+    }
+
+    if (_activeTool == resolvedTool) {
       // 如果重复点击同一个工具，则关闭它
       cancelCurrentTool();
       return;
     }
-    _activeTool = tool;
+    _activeTool = resolvedTool;
     // 进入工具时，备份当前状态以便取消
     if (isCroppingActive) {
       _backupCropRect = _cropRect; // 备份当前裁剪框
@@ -302,8 +389,13 @@ class ImageEditorController extends ChangeNotifier {
 
   /// 选择特定的裁剪工具（带宽高比）
   void selectCropTool(EditToolsMenu tool, {double? aspectRatio}) {
-    _activeTool = tool;
-    _initializeCropRect(aspectRatio: aspectRatio);
+    final resolvedTool = _resolveCropTool(tool);
+    if (resolvedTool == null) {
+      return;
+    }
+    _activeTool = resolvedTool;
+    final targetAspectRatio = aspectRatio ?? _getAspectRatioForTool(resolvedTool);
+    _initializeCropRect(aspectRatio: targetAspectRatio);
     notifyListeners();
   }
 
@@ -1001,6 +1093,10 @@ class ImageEditorController extends ChangeNotifier {
 
   double? _getCurrentAspectRatio() {
     return CropHandler.getAspectRatio(_activeTool);
+  }
+
+  double? _getAspectRatioForTool(EditToolsMenu tool) {
+    return CropHandler.getAspectRatio(tool);
   }
 
   DragHandlePosition? _getDragHandleForPosition(Offset position, Rect cropRect, double handleTouchRadius) {

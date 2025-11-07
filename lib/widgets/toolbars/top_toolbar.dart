@@ -12,46 +12,53 @@ class TopToolbar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final toolbarConfig = controller.config.topToolbar;
+    final backgroundColor = toolbarConfig.backgroundColor ?? Colors.black.withValues(alpha: 0.8);
+    final cancelText = toolbarConfig.cancelText ?? "返回";
+    final titleText = toolbarConfig.titleText ?? "编辑";
+    final confirmText = toolbarConfig.confirmText ?? "完成";
+    final cancelColor = toolbarConfig.cancelTextColor ?? Colors.grey.shade200;
+    final titleColor = toolbarConfig.titleTextColor ?? Colors.white;
+    final confirmColor = toolbarConfig.confirmTextColor ?? Colors.white;
+
     return SafeArea(
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        color: Colors.black.withOpacity(0.8),
+        color: backgroundColor,
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            // 取消按钮（左侧）
             TextButton(
               onPressed: () => Navigator.pop(context),
               child: Text(
-                "取消",
+                cancelText,
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w500,
-                  color: Colors.grey[200],
+                  color: cancelColor,
                 ),
               ),
             ),
-            // 标题"编辑"（中间）
-            const Text(
-              "编辑",
+            Text(
+              titleText,
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
-                color: Colors.white,
+                color: titleColor,
               ),
             ),
-            // 导出按钮（右侧）
             TextButton(
               onPressed: () async {
                 final resultImage = await controller.exportImage();
-                Navigator.pop(context, resultImage);
+                if(context.mounted){
+                  Navigator.pop(context, resultImage);
+                }
               },
-              child: const Text(
-                "导出",
+              child: Text(
+                confirmText,
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
-                  color: Colors.white,
+                  color: confirmColor,
                 ),
               ),
             ),

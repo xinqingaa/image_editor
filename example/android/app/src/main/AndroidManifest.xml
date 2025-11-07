@@ -1,4 +1,24 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- 网络访问用于从互联网加载图片、调用 HTTP API -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <!-- 读取相册图片：Android 13+ 需要 READ_MEDIA_IMAGES 权限 -->
+    <uses-permission
+        android:name="android.permission.READ_MEDIA_IMAGES"
+        android:required="false" />
+
+    <!-- 兼容 Android 12 及以下版本读取相册的权限 -->
+    <uses-permission
+        android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32"
+        android:required="false" />
+
+    <!-- 可选：若启用拍照功能，需要 CAMERA 权限，运行时同样需申请 -->
+    <uses-permission
+        android:name="android.permission.CAMERA"
+        android:required="false" />
+
     <application
         android:label="example"
         android:name="${applicationName}"

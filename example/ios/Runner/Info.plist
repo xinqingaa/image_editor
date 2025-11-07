@@ -45,5 +45,11 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>需要读取相册中的图片以便进行编辑。</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>编辑完成后可以将图片保存回相册。</string>
+	<key>NSCameraUsageDescription</key>
+	<string>需要使用相机拍摄照片后进行编辑。</string>
 </dict>
 </plist>

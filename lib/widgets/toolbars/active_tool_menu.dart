@@ -44,15 +44,28 @@ class ActiveToolMenu extends StatelessWidget {
         children: [
           IconButton(
             highlightColor: Colors.grey[800] ,
-            onPressed: () => controller.cancelCurrentTool(),
-            icon: Icon(Icons.close ,  size: 18,  color: Colors.grey)
+            onPressed: controller.isBusy ? null : () => controller.cancelCurrentTool(),
+            icon: Icon(Icons.close ,  size: 18,  color: controller.isBusy ? Colors.grey[700] : Colors.grey)
           ),
           Expanded(child: child),
-          IconButton(
-            highlightColor: Colors.grey[800] ,
-            onPressed: () async => await controller.applyCurrentTool(),
-            icon: Icon(Icons.check,  size: 20, color: Colors.orange)
-          ),
+          Stack(
+            alignment: Alignment.center,
+            children: [
+              IconButton(
+                highlightColor: Colors.grey[800] ,
+                onPressed: controller.isBusy
+                    ? null
+                    : () async => await controller.applyCurrentTool(),
+                icon: Icon(Icons.check,  size: 20, color: controller.isBusy ? Colors.orange.withValues(alpha: 0.5) : Colors.orange)
+              ),
+              if (controller.isBusy)
+                const SizedBox(
+                  height: 20,
+                  width: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.orange),
+                ),
+            ],
+          )
         ],
       ),
     );

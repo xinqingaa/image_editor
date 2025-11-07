@@ -17,8 +17,13 @@ import 'toolbars/top_toolbar.dart';
 /// 这是包的入口UI，负责创建和管理Controller的生命周期
 class ImageEditorView extends StatefulWidget {
   final ui.Image image;
+  final ImageEditorConfig config;
 
-  const ImageEditorView({super.key, required this.image});
+  const ImageEditorView({
+    super.key,
+    required this.image,
+    this.config = const ImageEditorConfig(),
+  });
 
   @override
   State<ImageEditorView> createState() => _ImageEditorViewState();
@@ -31,7 +36,10 @@ class _ImageEditorViewState extends State<ImageEditorView> {
   void initState() {
     super.initState();
     // 创建控制器实例
-    _controller = ImageEditorController(image: widget.image);
+    _controller = ImageEditorController(
+      image: widget.image,
+      config: widget.config,
+    );
   }
 
   @override
@@ -42,7 +50,6 @@ class _ImageEditorViewState extends State<ImageEditorView> {
 
   @override
   Widget build(BuildContext context) {
-    // 使用ListenableBuilder可以更高效地监听Controller的变化
     return ListenableBuilder(
       listenable: _controller,
       builder: (context, child) {
@@ -97,7 +104,7 @@ class _ImageEditorViewState extends State<ImageEditorView> {
     );
   }
 
-  // [新增] 用于管理底部工具栏的显示逻辑
+  // 用于管理底部工具栏的显示逻辑
   Widget _buildBottomToolbars() {
     // 优先显示文本属性工具栏
     if (_controller.selectedTextLayerId != null) {
