@@ -1,5 +1,5 @@
 name: example
-description: Demonstrates how to use the image_editor package.
+description: Demonstrates how to use the flutter_img_editor package.
 publish_to: 'none'
 version: 0.0.1
 
@@ -12,7 +12,7 @@ dependencies:
 
 
   # 使用 path 依赖本地的 SDK
-  image_editor:
+  flutter_img_editor:
     path: ../
 
   image_picker: ^1.2.0

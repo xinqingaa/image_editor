@@ -1,7 +1,7 @@
 // image_editor/lib/widgets/image_editor_view.dart
 
 import 'package:flutter/material.dart';
-import 'package:image_editor/widgets/toolbars/text_properties_toolbar.dart';
+import '../widgets/toolbars/text_properties_toolbar.dart';
 import 'dart:ui' as ui;
 
 import '../controller/image_editor_controller.dart';

@@ -1,6 +1,6 @@
 # Image Editor API Reference
 
-本文件列出了 `package:image_editor` 中的主要对外 API，包含用途说明、关键参数与使用要点。示例均采用 Dart 语言。
+本文件列出了 `package:flutter_img_editor` 中的主要对外 API，包含用途说明、关键参数与使用要点。示例均采用 Dart 语言。
 
 ## Widgets
 

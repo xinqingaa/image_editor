@@ -26,7 +26,7 @@ lib/
 在你的 Flutter 项目的 `pubspec.yaml` 中加入：
 ```yaml
 dependencies:
-  image_editor: # 最新版本
+  flutter_img_editor: # 最新版本
 ```
 然后执行：
 ```bash
@@ -37,7 +37,7 @@ flutter pub get
 ```dart
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
-import 'package:image_editor/image_editor.dart';
+import 'package:flutter_img_editor/image_editor.dart';
 
 
 class AvatarEditorDemo extends StatefulWidget {

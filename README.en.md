@@ -26,9 +26,9 @@ See `doc/api_reference.md` for detailed API descriptions.
 Add to your `pubspec.yaml`:
 ```yaml
 dependencies:
-  image_editor:
+  flutter_img_editor:
     git:
-      url: https://github.com/your-org/image_editor.git
+      url: https://github.com/your-org/flutter_img_editor.git
 ```
 Run:
 ```bash
@@ -39,7 +39,7 @@ flutter pub get
 ```dart
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
-import 'package:image_editor/image_editor.dart';
+import 'package:flutter_img_editor/image_editor.dart';
 
 class AvatarEditorDemo extends StatefulWidget {
   const AvatarEditorDemo({super.key});

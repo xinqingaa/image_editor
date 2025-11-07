@@ -1,7 +1,7 @@
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
-import 'package:image_editor/image_editor.dart';
+import 'package:flutter_img_editor/image_editor.dart';
 import 'package:image_picker/image_picker.dart';
 
 void main() {
