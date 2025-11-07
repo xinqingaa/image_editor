@@ -8,6 +8,7 @@ import 'models/editor_models.dart';
 // 导出主编辑器Widget，方便外部直接使用
 export 'models/editor_models.dart'
     show EditToolsMenu, ImageEditorConfig, CropOptionConfig, TopToolbarConfig;
+export 'utils/image_loader.dart';
 
 class ImageEditor extends StatelessWidget {
   final ui.Image image;

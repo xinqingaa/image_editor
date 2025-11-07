@@ -1,10 +1,6 @@
-import 'dart:async';
-import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:http/http.dart' as http;
 import 'package:image_editor/image_editor.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -35,32 +31,6 @@ class MyHomePage extends StatefulWidget {
   State<MyHomePage> createState() => _MyHomePageState();
 }
 
-Future<ui.Image> loadImageFromAssets(String path) async {
-  final ByteData data = await rootBundle.load(path);
-  return _decodeUiImage(data.buffer.asUint8List());
-}
-
-Future<ui.Image> loadImageFromFile(String path) async {
-  final Uint8List bytes = await File(path).readAsBytes();
-  return _decodeUiImage(bytes);
-}
-
-Future<ui.Image> loadImageFromNetwork(String url) async {
-  final response = await http.get(Uri.parse(url));
-  if (response.statusCode != 200) {
-    throw Exception('HTTP ${response.statusCode}');
-  }
-  return _decodeUiImage(response.bodyBytes);
-}
-
-Future<ui.Image> _decodeUiImage(Uint8List bytes) {
-  final Completer<ui.Image> completer = Completer();
-  ui.decodeImageFromList(bytes, (ui.Image img) {
-    completer.complete(img);
-  });
-  return completer.future;
-}
-
 class _MyHomePageState extends State<MyHomePage> {
   final ImagePicker _picker = ImagePicker();
 
@@ -89,7 +59,7 @@ class _MyHomePageState extends State<MyHomePage> {
 
   // 网络图片URL
   static const String _networkImageUrl =
-      'https://img2.baidu.com/it/u=2362964853,590127165&fm=253&fmt=auto&app=138&f=PNG?w=500&h=500';
+      'https://img0.baidu.com/it/u=55569000,880805428&fm=253&app=138&f=JPEG?w=500&h=500';
 
   @override
   void initState() {
@@ -131,6 +101,12 @@ class _MyHomePageState extends State<MyHomePage> {
               '以下示例展示如何将图片编辑器嵌入到不同来源的图片工作流中，'
               '并展示编辑前后的视觉、像素与内存占用对比。',
             ),
+            const SizedBox(height: 8),
+            const Text(
+              '''小贴士：示例直接调用 SDK 暴露的 `loadImageFromAssets`、`loadImageFromFile`、`loadImageFromNetwork` 与 `convertUiImageToBytes` 方法。
+在实际工程中需确保拥有相册/相机/网络权限；在 Web 平台上，文件读取接口会抛出 UnsupportedError，建议捕获并给用户友好提示。''',
+              style: TextStyle(color: Colors.black45, fontSize: 13),
+            ),
             const SizedBox(height: 16),
             _buildAssetDemo(),
             _buildDivider(),
@@ -150,7 +126,7 @@ class _MyHomePageState extends State<MyHomePage> {
   Widget _buildDivider() {
     return const Padding(
       padding: EdgeInsets.symmetric(vertical: 12),
-      child: Divider(height: 1),
+      child: Divider(height: 0.5),
     );
   }
 
@@ -479,7 +455,7 @@ class _MyHomePageState extends State<MyHomePage> {
     final ui.Image? result = await _openEditor(
       original,
       config: const ImageEditorConfig(
-        enableRotate: false,
+        enableRotate: true,
         enableText: false,
         cropOptions: CropOptionConfig(
           enableFree: false,
@@ -499,6 +475,7 @@ class _MyHomePageState extends State<MyHomePage> {
     setState(() {
       _assetEdited = result;
     });
+    await _logImageBytes(result, 'asset');
   }
 
   Future<void> _handleCameraEdit() async {
@@ -534,6 +511,7 @@ class _MyHomePageState extends State<MyHomePage> {
       setState(() {
         _cameraEdited = result;
       });
+      await _logImageBytes(result, 'camera');
     } catch (error) {
       _showSnack('拍照失败: $error');
     } finally {
@@ -574,6 +552,7 @@ class _MyHomePageState extends State<MyHomePage> {
       setState(() {
         _pickerEdited = result;
       });
+      await _logImageBytes(result, 'picker');
     } catch (error) {
       _showSnack('选择图片失败: $error');
     } finally {
@@ -619,6 +598,7 @@ class _MyHomePageState extends State<MyHomePage> {
       setState(() {
         _networkEdited = result;
       });
+      await _logImageBytes(result, 'network');
     } catch (error) {
       _showSnack('下载网络图片失败: $error');
     } finally {
@@ -643,6 +623,13 @@ class _MyHomePageState extends State<MyHomePage> {
         ),
       ),
     );
+  }
+
+  Future<void> _logImageBytes(ui.Image image, String tag) async {
+    final bytes = await convertUiImageToBytes(image);
+    if (bytes == null) return;
+    // 此处仅演示如何获取可直接用于上传的字节数据，可替换为实际网络请求。
+    debugPrint('[image_editor_demo][$tag] export bytes=${bytes.lengthInBytes}');
   }
 
   Card _buildPerformanceNote() {

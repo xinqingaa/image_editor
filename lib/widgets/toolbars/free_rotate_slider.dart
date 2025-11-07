@@ -228,7 +228,7 @@ class _FreeRotateSliderState extends State<FreeRotateSlider> {
       builder: (context, constraints) {
         // 在LayoutBuilder中更新中心点，更可靠
         _centerOffset = constraints.maxWidth / 2;
-
+        
         return ListView.builder(
           controller: _scrollController,
           scrollDirection: Axis.horizontal,

@@ -97,15 +97,18 @@ class ImageEditorController extends ChangeNotifier {
 
   bool get isTextFeatureEnabled => config.enableText;
 
+  // 是否正在执行操作
   bool _isBusy = false;
   bool get isBusy => _isBusy;
 
+  // 设置是否正在执行操作
   void _setBusy(bool value) {
     if (_isBusy == value) return;
     _isBusy = value;
     notifyListeners();
   }
 
+  // 判断工具是否启用
   bool isToolEnabled(EditToolsMenu tool) {
     if (tool == EditToolsMenu.none) {
       return true;
@@ -1111,6 +1114,4 @@ class ImageEditorController extends ChangeNotifier {
     if (cropRect.contains(position)) return DragHandlePosition.inside;
     return null;
   }
-
-
 }
