@@ -579,10 +579,12 @@ class ImageEditorController extends ChangeNotifier {
 
     // 1. 计算从“图片坐标系”到“屏幕坐标系”的变换矩阵
     final Matrix4 matrixToScreen = Matrix4.identity();
-    matrixToScreen.translate(_canvasSize!.width / 2, _canvasSize!.height / 2);
+    matrixToScreen
+        .multiply(Matrix4.translationValues(_canvasSize!.width / 2, _canvasSize!.height / 2, 0));
     matrixToScreen.rotateZ(_currentRotationAngle);
-    matrixToScreen.scale(_scale, _scale);
-    matrixToScreen.translate(-_image.width / 2, -_image.height / 2);
+    matrixToScreen.multiply(Matrix4.diagonal3Values(_scale, _scale, 1));
+    matrixToScreen
+        .multiply(Matrix4.translationValues(-_image.width / 2, -_image.height / 2, 0));
 
     // 2. 求逆矩阵，得到从“屏幕坐标系”返回“图片坐标系”的变换
     final Matrix4 screenToImageMatrix = Matrix4.inverted(matrixToScreen);
@@ -690,18 +692,22 @@ class ImageEditorController extends ChangeNotifier {
     // 6. 绘制所有文本图层（需要将屏幕坐标转换为像素坐标）
     // 计算从图片坐标系到屏幕坐标系的变换矩阵（与 _captureHiResCroppedImage 中的逻辑一致）
     final Matrix4 imageToScreenMatrix = Matrix4.identity();
-    imageToScreenMatrix.translate(_canvasSize!.width / 2, _canvasSize!.height / 2);
+    imageToScreenMatrix
+        .multiply(Matrix4.translationValues(_canvasSize!.width / 2, _canvasSize!.height / 2, 0));
     imageToScreenMatrix.rotateZ(_currentRotationAngle);
-    imageToScreenMatrix.scale(_scale, _scale);
-    imageToScreenMatrix.translate(-_image.width / 2, -_image.height / 2);
+    imageToScreenMatrix.multiply(Matrix4.diagonal3Values(_scale, _scale, 1));
+    imageToScreenMatrix
+        .multiply(Matrix4.translationValues(-_image.width / 2, -_image.height / 2, 0));
     // 求逆矩阵，得到从屏幕坐标系到图片坐标系的变换
     final Matrix4 screenToImageMatrix = Matrix4.inverted(imageToScreenMatrix);
     
     // 计算从图片坐标系到导出画布坐标系的变换矩阵
     final Matrix4 imageToExportMatrix = Matrix4.identity();
-    imageToExportMatrix.translate(exportWidth / 2, exportHeight / 2);
+    imageToExportMatrix
+        .multiply(Matrix4.translationValues(exportWidth / 2, exportHeight / 2, 0));
     imageToExportMatrix.rotateZ(angle);
-    imageToExportMatrix.translate(-_image.width / 2, -_image.height / 2);
+    imageToExportMatrix
+        .multiply(Matrix4.translationValues(-_image.width / 2, -_image.height / 2, 0));
     
     for (final layer in textLayers) {
       // 创建段落样式
@@ -755,9 +761,10 @@ class ImageEditorController extends ChangeNotifier {
 
     // 2. 构建从图片坐标系到屏幕坐标系的变换矩阵
     final Matrix4 imageToScreenMatrix = Matrix4.identity();
-    imageToScreenMatrix.translate(_canvasSize!.width / 2, _canvasSize!.height / 2);
+    imageToScreenMatrix
+        .multiply(Matrix4.translationValues(_canvasSize!.width / 2, _canvasSize!.height / 2, 0));
     imageToScreenMatrix.rotateZ(_currentRotationAngle);
-    imageToScreenMatrix.scale(_scale, _scale);
+    imageToScreenMatrix.multiply(Matrix4.diagonal3Values(_scale, _scale, 1));
 
     // 3. 将图片的四个角变换到屏幕坐标系
     final List<Offset> screenCorners = imageCorners.map((corner) {

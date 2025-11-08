@@ -101,6 +101,11 @@
 - 将 `ui.Image` 转换为特定格式的字节流，默认 PNG。
 - 若底层 `toByteData` 返回 `null`，则返回 `null`。
 
+### `Future<String?> saveImageAsTempPathString(ui.Image image)`
+- 依赖 `path_provider` 将图像缓存到临时目录，并返回生成的文件路径字符串。
+- 若编码失败（`convertUiImageToBytes` 返回 `null`），则返回 `null`。
+- 适合在分享、上传前快速获取一张本地临时图片。
+
 ## 枚举
 
 ### EditToolsMenu

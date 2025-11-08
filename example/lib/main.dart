@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
@@ -41,6 +42,8 @@ class _MyHomePageState extends State<MyHomePage> {
   // 相册图片
   ui.Image? _pickerOriginal;
   ui.Image? _pickerEdited;
+  String? _pickerTempPath;
+  Duration? _pickerTempDuration;
 
   // 相机图片
   ui.Image? _cameraOriginal;
@@ -89,10 +92,7 @@ class _MyHomePageState extends State<MyHomePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        centerTitle: true,
-        title: const Text('Image Editor 示例大全'),
-      ),
+      appBar: null,
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(16),
@@ -233,12 +233,26 @@ class _MyHomePageState extends State<MyHomePage> {
                 child: LinearProgressIndicator(minHeight: 3),
               ),
             const SizedBox(height: 16),
-            _buildComparisonRow(
-              original: _pickerOriginal,
-              edited: _pickerEdited,
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildImagePanel(label: '原始', image: _pickerOriginal),
+                const SizedBox(width: 16),
+                _buildImagePanel(label: 'ui.Image', image: _pickerEdited),
+                const SizedBox(width: 16),
+                _buildImagePanelFromPath(label: 'path', path: _pickerTempPath),
+              ],
             ),
             const SizedBox(height: 12),
             _buildPixelStats(_pickerOriginal, _pickerEdited),
+            if (_pickerTempPath != null) ...[
+              const SizedBox(height: 16),
+              Text('临时文件路径 (saveImageAsTempPathString):',
+                  style: Theme.of(context).textTheme.titleSmall),
+              const SizedBox(height: 4),
+              SelectableText(_pickerTempPath!),
+              Text('耗时: ${_pickerTempDuration != null ? '${_pickerTempDuration!.inMilliseconds} ms' : '--'}'),
+            ],
           ],
         ),
       ),
@@ -377,6 +391,52 @@ class _MyHomePageState extends State<MyHomePage> {
     );
   }
 
+  Widget _buildImagePanelFromPath({
+    required String label,
+    required String? path,
+  }) {
+    final captionStyle = Theme.of(context).textTheme.labelMedium?.copyWith(
+          color: Colors.grey.shade600,
+        );
+    Widget child;
+    if (path != null) {
+      child = Image.file(
+        File(path),
+        fit: BoxFit.contain,
+      );
+    } else {
+      child = Center(
+        child: Text(
+          '暂无图片',
+          style: captionStyle,
+        ),
+      );
+    }
+    return Expanded(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: Theme.of(context).textTheme.bodySmall),
+          const SizedBox(height: 6),
+          Container(
+            height: 180,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              color: Colors.grey.shade100,
+              border: Border.all(color: Colors.grey.shade300),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: child,
+            ),
+          ),
+          const SizedBox(height: 6),
+          if (path != null) Text('文件大小: ${_fileSize(path)}', style: captionStyle),
+        ],
+      ),
+    );
+  }
+
   Widget _buildPixelStats(ui.Image? original, ui.Image? edited) {
     final String delta = _pixelDelta(original, edited);
     final String originalMemory = _memoryUsage(original);
@@ -444,6 +504,23 @@ class _MyHomePageState extends State<MyHomePage> {
     final double diffMb = diffBytes / (1024 * 1024);
     final String sign = diffMb > 0 ? '+' : '';
     return '内存变化: $sign${diffMb.toStringAsFixed(2)} MB';
+  }
+
+  String _fileSize(String path) {
+    try {
+      final int bytes = File(path).lengthSync();
+      if (bytes < 1024) {
+        return '$bytes B';
+      }
+      final double kb = bytes / 1024;
+      if (kb < 1024) {
+        return '${kb.toStringAsFixed(1)} KB';
+      }
+      final double mb = kb / 1024;
+      return '${mb.toStringAsFixed(2)} MB';
+    } catch (error) {
+      return '--';
+    }
   }
 
   Future<void> _handleAssetEdit() async {
@@ -552,6 +629,7 @@ class _MyHomePageState extends State<MyHomePage> {
       setState(() {
         _pickerEdited = result;
       });
+      await _processPickerResult(result);
       await _logImageBytes(result, 'picker');
     } catch (error) {
       _showSnack('选择图片失败: $error');
@@ -630,6 +708,24 @@ class _MyHomePageState extends State<MyHomePage> {
     if (bytes == null) return;
     // 此处仅演示如何获取可直接用于上传的字节数据，可替换为实际网络请求。
     debugPrint('[image_editor_demo][$tag] export bytes=${bytes.lengthInBytes}');
+  }
+
+  /// 处理相册图片编辑结果为临时文件
+  Future<void> _processPickerResult(ui.Image result) async {
+    final Stopwatch stopwatch = Stopwatch()..start();
+    final String? tempPath = await ImageExporter.saveImageAsTempPathString(result);
+    stopwatch.stop();
+
+    setState(() {
+      _pickerTempPath = tempPath;
+      _pickerTempDuration = stopwatch.elapsed;
+    });
+
+    if (tempPath == null) {
+      _showSnack('图片保存失败');
+    } else {
+      debugPrint('[image_editor_demo][picker] tempPath=$tempPath in ${stopwatch.elapsedMilliseconds}ms');
+    }
   }
 
   Card _buildPerformanceNote() {

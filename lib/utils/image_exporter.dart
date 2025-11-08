@@ -1,10 +1,16 @@
 // image_editor/lib/utils/image_exporter.dart
 
+import 'dart:io';
 import 'dart:math' as math;
+import 'dart:typed_data';
 import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
+import 'package:path_provider/path_provider.dart';
+
 import '../models/editor_models.dart';
 import 'coordinate_transformer.dart';
+import 'image_loader.dart';
 
 /// 图片导出器
 /// 负责将编辑后的图片导出为高清晰度的最终图片
@@ -61,9 +67,11 @@ class ImageExporter {
 
     // 计算从图片坐标系到导出画布坐标系的变换矩阵
     final Matrix4 imageToExportMatrix = Matrix4.identity();
-    imageToExportMatrix.translate(exportWidth / 2, exportHeight / 2);
+    imageToExportMatrix
+        .multiply(Matrix4.translationValues(exportWidth / 2, exportHeight / 2, 0));
     imageToExportMatrix.rotateZ(rotationAngle);
-    imageToExportMatrix.translate(-image.width / 2, -image.height / 2);
+    imageToExportMatrix
+        .multiply(Matrix4.translationValues(-image.width / 2, -image.height / 2, 0));
 
     for (final layer in textLayers) {
       // 创建段落样式
@@ -96,6 +104,22 @@ class ImageExporter {
 
     final picture = recorder.endRecording();
     return await picture.toImage(exportWidth, exportHeight);
+  }
+
+  /// 将编辑后的 [ui.Image] 写入临时目录并返回可用的文件路径字符串
+  static Future<String?> saveImageAsTempPathString(ui.Image image) async {
+    final Uint8List? bytes = await convertUiImageToBytes(image);
+    if (bytes == null) {
+      return null;
+    }
+
+    final Directory directory = await getTemporaryDirectory();
+    final String filePath =
+        '${directory.path}/image_${DateTime.now().millisecondsSinceEpoch}.png';
+
+    final File file = File(filePath);
+    await file.writeAsBytes(bytes, flush: true);
+    return file.path;
   }
 }
 

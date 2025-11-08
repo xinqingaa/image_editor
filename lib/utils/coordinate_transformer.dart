@@ -2,6 +2,7 @@
 
 import 'dart:math' as math;
 import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
 
 /// 坐标变换工具类
@@ -15,10 +16,10 @@ class CoordinateTransformer {
     required ui.Image image,
   }) {
     final Matrix4 matrix = Matrix4.identity();
-    matrix.translate(canvasSize.width / 2, canvasSize.height / 2);
+    matrix.multiply(Matrix4.translationValues(canvasSize.width / 2, canvasSize.height / 2, 0));
     matrix.rotateZ(rotationAngle);
-    matrix.scale(scale, scale);
-    matrix.translate(-image.width / 2, -image.height / 2);
+    matrix.multiply(Matrix4.diagonal3Values(scale, scale, 1));
+    matrix.multiply(Matrix4.translationValues(-image.width / 2, -image.height / 2, 0));
     return matrix;
   }
 
