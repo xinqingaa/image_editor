@@ -103,8 +103,10 @@ class _MyHomePageState extends State<MyHomePage> {
             ),
             const SizedBox(height: 8),
             const Text(
-              '''小贴士：示例直接调用 SDK 暴露的 `loadImageFromAssets`、`loadImageFromFile`、`loadImageFromNetwork` 与 `convertUiImageToBytes` 方法。
-在实际工程中需确保拥有相册/相机/网络权限；在 Web 平台上，文件读取接口会抛出 UnsupportedError，建议捕获并给用户友好提示。''',
+              '''小贴士：
+· 示例直接调用 SDK 暴露的 `loadImageFromAssets`、`loadImageFromFile`、`loadImageFromNetwork`、`convertUiImageToBytes` 与 `saveImageToTempFile`。
+· 推荐优先使用 `ui.Image` 渲染或传输字节数据；生成临时文件路径会进行编码与磁盘写入，实机大约耗时 1～2 秒。
+· 在实际工程中需确保拥有相册/相机/网络权限；Web 平台调用文件相关 API 会抛出 `UnsupportedError`，请捕获后给用户友好提示。''',
               style: TextStyle(color: Colors.black45, fontSize: 13),
             ),
             const SizedBox(height: 16),
@@ -240,14 +242,14 @@ class _MyHomePageState extends State<MyHomePage> {
                 const SizedBox(width: 16),
                 _buildImagePanel(label: 'ui.Image', image: _pickerEdited),
                 const SizedBox(width: 16),
-                _buildImagePanelFromPath(label: 'path', path: _pickerTempPath),
+                 _buildImagePanelFromPath(label: 'path', path: _pickerTempPath),
               ],
             ),
             const SizedBox(height: 12),
             _buildPixelStats(_pickerOriginal, _pickerEdited),
-            if (_pickerTempPath != null) ...[
-              const SizedBox(height: 16),
-              Text('临时文件路径 (saveImageAsTempPathString):',
+             if (_pickerTempPath != null) ...[
+               const SizedBox(height: 16),
+               Text('临时文件路径 (saveImageToTempFile):',
                   style: Theme.of(context).textTheme.titleSmall),
               const SizedBox(height: 4),
               SelectableText(_pickerTempPath!),
@@ -630,6 +632,7 @@ class _MyHomePageState extends State<MyHomePage> {
         _pickerEdited = result;
       });
       await _processPickerResult(result);
+      await _processPickerResult(result);
       await _logImageBytes(result, 'picker');
     } catch (error) {
       _showSnack('选择图片失败: $error');
@@ -713,7 +716,7 @@ class _MyHomePageState extends State<MyHomePage> {
   /// 处理相册图片编辑结果为临时文件
   Future<void> _processPickerResult(ui.Image result) async {
     final Stopwatch stopwatch = Stopwatch()..start();
-    final String? tempPath = await ImageExporter.saveImageAsTempPathString(result);
+    final String? tempPath = await saveImageToTempFile(result);
     stopwatch.stop();
 
     setState(() {

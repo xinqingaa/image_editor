@@ -1,3 +1,6 @@
+## 0.0.2
+- Add saveImageToTempFile,  For workflows that absolutely need a path
+
 ## 0.0.1
 
 ### Added

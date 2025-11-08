@@ -1,6 +1,6 @@
 name: flutter_img_editor
 description: "Image_editor is an embeddable Flutter image editing component that offers common editing tools such as cropping, rotating, and text overlay."
-version: 0.0.1
+version: 0.0.2
 homepage: https://github.com/xinqingaa/flutter_img_editor
 repository: https://github.com/xinqingaa/flutter_img_editor
 

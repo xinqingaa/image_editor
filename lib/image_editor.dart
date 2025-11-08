@@ -9,7 +9,6 @@ import 'models/editor_models.dart';
 export 'models/editor_models.dart'
     show EditToolsMenu, ImageEditorConfig, CropOptionConfig, TopToolbarConfig;
 export 'utils/image_loader.dart';
-export 'utils/image_exporter.dart' show ImageExporter;
 
 class ImageEditor extends StatelessWidget {
   final ui.Image image;

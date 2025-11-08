@@ -37,7 +37,8 @@ Future<ui.Image> loadImageFromNetwork(
 }) async {
   final http.Client effectiveClient = client ?? http.Client();
   try {
-    final http.Response response = await effectiveClient.get(Uri.parse(url), headers: headers);
+    final http.Response response =
+        await effectiveClient.get(Uri.parse(url), headers: headers);
     if (response.statusCode != 200) {
       throw http.ClientException('HTTP ${response.statusCode}', Uri.parse(url));
     }
@@ -61,4 +62,20 @@ Future<Uint8List?> convertUiImageToBytes(
   return byteData.buffer.asUint8List();
 }
 
+/// 将 [ui.Image] 写入临时目录并返回路径字符串（仅原生平台可用）
+Future<String?> saveImageToTempFile(
+  ui.Image image, {
+  ui.ImageByteFormat format = ui.ImageByteFormat.png,
+  String prefix = 'image',
+}) async {
+  final Uint8List? bytes = await convertUiImageToBytes(image, format: format);
+  if (bytes == null) {
+    return null;
+  }
+  final String extension = _fileExtensionForFormat(format);
+  return saveBytesToTempFile(bytes, prefix: prefix, extension: extension);
+}
 
+String _fileExtensionForFormat(ui.ImageByteFormat format) {
+  return format == ui.ImageByteFormat.png ? 'png' : 'raw';
+}

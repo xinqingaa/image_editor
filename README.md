@@ -10,7 +10,7 @@ Image Editor is an embeddable Flutter component that brings cropping, rotation, 
 - **Stateful workflow**: built-in history stack with undo and reset-to-original.
 - **Highly configurable**: tune tool availability, crop presets, and top toolbar copy/colors via `ImageEditorConfig`.
 - **Cross-platform loaders**: helpers such as `loadImageFromAssets`, `loadImageFromFile`, and `loadImageFromNetwork` hide platform differences.
-- **Pixel export**: convert edited `ui.Image` instances to PNG/JPEG bytes for uploads or local storage.
+- **Pixel export**: convert edited `ui.Image` instances to PNG/JPEG bytes for uploads or local storage, or persist them via `saveImageToTempFile` when a file path is required.
 - **Gesture friendly**: pinch-to-zoom, drag, and tap to select text layers.
 
 ## Project Layout
@@ -138,8 +138,11 @@ Place `ImageEditor` in your widget tree, passing the `ui.Image` to edit alongsid
 ### 3. Export the result
 ```dart
 final Uint8List? pngBytes = await convertUiImageToBytes(editedImage);
+// For workflows that absolutely need a path, use:
+final String? tempPath = await saveImageToTempFile(editedImage);
 ```
-Use the bytes for uploads, local persistence, or further processing.
+> **Recommendation**  
+> Prefer rendering `ui.Image` directly or sending `Uint8List` buffers. Converting to a temporary file path blocks on disk IO and may take ~1–2 seconds on mid-range devices.
 
 ## Example App
 The `example/` folder showcases asset, gallery, camera, and network flows. Run it with:

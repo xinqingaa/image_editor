@@ -101,10 +101,11 @@
 - 将 `ui.Image` 转换为特定格式的字节流，默认 PNG。
 - 若底层 `toByteData` 返回 `null`，则返回 `null`。
 
-### `Future<String?> saveImageAsTempPathString(ui.Image image)`
+### `Future<String?> saveImageToTempFile(ui.Image image, {ui.ImageByteFormat format = ui.ImageByteFormat.png, String prefix = 'image'})`
 - 依赖 `path_provider` 将图像缓存到临时目录，并返回生成的文件路径字符串。
 - 若编码失败（`convertUiImageToBytes` 返回 `null`），则返回 `null`。
 - 适合在分享、上传前快速获取一张本地临时图片。
+- **耗时提示**：保存至磁盘涉及编码与写入，实机（中端设备）测试大约需要 1~2 秒。推荐优先使用 `ui.Image` 直接渲染或传输 `Uint8List`，仅在确实需要文件路径时调用。
 
 ## 枚举
 
