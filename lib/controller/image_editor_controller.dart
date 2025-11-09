@@ -7,6 +7,7 @@ import 'history_manager.dart';
 import 'text_layer_manager.dart';
 import 'crop_handler.dart';
 import 'rotation_handler.dart';
+import 'package:flutter_img_editor/utils/image_loader.dart';
 
 
 /// 图片编辑器控制器
@@ -430,7 +431,8 @@ class ImageEditorController extends ChangeNotifier {
   Future<ui.Image?> exportImage() async {
     if (_canvasSize == null) return null;
     // 导出时，我们渲染当前所见即所得的视图
-    return await _captureTransformedImage();
+    final ui.Image transformed = await _captureTransformedImage();
+    return await _applyCompressionIfNeeded(transformed);
   }
 
   // ----------------- 手势处理逻辑 -----------------
@@ -740,6 +742,59 @@ class ImageEditorController extends ChangeNotifier {
 
     final picture = recorder.endRecording();
     return await picture.toImage(exportWidth, exportHeight);
+  }
+
+  Future<ui.Image> _applyCompressionIfNeeded(ui.Image image) async {
+    final ImageCompressionConfig? compressionConfig = config.compression;
+    if (compressionConfig == null || !compressionConfig.enabled) {
+      return image;
+    }
+    final double scale = compressionConfig.scale ?? 1.0;
+    if (scale <= 0 || scale >= 1.0) {
+      return image;
+    }
+    final int targetWidth = math.max(1, (image.width * scale).round());
+    final int targetHeight = math.max(1, (image.height * scale).round());
+
+    if (targetWidth == image.width && targetHeight == image.height) {
+      return image;
+    }
+
+    final ui.PictureRecorder recorder = ui.PictureRecorder();
+    final Canvas canvas = Canvas(recorder);
+    final Rect srcRect = Rect.fromLTWH(
+      0,
+      0,
+      image.width.toDouble(),
+      image.height.toDouble(),
+    );
+    final Rect dstRect = Rect.fromLTWH(
+      0,
+      0,
+      targetWidth.toDouble(),
+      targetHeight.toDouble(),
+    );
+    final Paint paint = Paint()..filterQuality = FilterQuality.high;
+
+    canvas.drawImageRect(image, srcRect, dstRect, paint);
+
+    final ui.Picture picture = recorder.endRecording();
+    try {
+      final ui.Image resized =
+          await picture.toImage(targetWidth, targetHeight);
+      _disposeImage(image);
+      return resized;
+    } finally {
+      picture.dispose();
+    }
+  }
+
+  void _disposeImage(ui.Image image) {
+    try {
+      image.dispose();
+    } catch (_) {
+      // 忽略旧版本 Flutter 无 dispose 的情况
+    }
   }
 
   /// 计算旋转后图片在屏幕上的实际显示边界框

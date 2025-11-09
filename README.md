@@ -10,7 +10,7 @@ Image Editor is an embeddable Flutter component that brings cropping, rotation, 
 - **Stateful workflow**: built-in history stack with undo and reset-to-original.
 - **Highly configurable**: tune tool availability, crop presets, and top toolbar copy/colors via `ImageEditorConfig`.
 - **Cross-platform loaders**: helpers such as `loadImageFromAssets`, `loadImageFromFile`, and `loadImageFromNetwork` hide platform differences.
-- **Pixel export**: convert edited `ui.Image` instances to PNG/JPEG bytes for uploads or local storage, or persist them via `saveImageToTempFile` when a file path is required.
+- **Pixel export**: convert edited `ui.Image` instances to PNG/JPEG bytes, optionally apply `ImageCompressionConfig` scaling, or persist them via `saveImageToTempFile` when a file path is required.
 - **Gesture friendly**: pinch-to-zoom, drag, and tap to select text layers.
 
 ## Project Layout
@@ -88,6 +88,10 @@ class _AvatarEditorDemoState extends State<AvatarEditorDemo> {
               titleText: 'Edit Avatar',
               confirmText: 'Done',
             ),
+            compression: ImageCompressionConfig(
+              enabled: true,
+              scale: 0.5,
+            ),
           ),
         ),
       ),
@@ -139,10 +143,36 @@ Place `ImageEditor` in your widget tree, passing the `ui.Image` to edit alongsid
 ```dart
 final Uint8List? pngBytes = await convertUiImageToBytes(editedImage);
 // For workflows that absolutely need a path, use:
-final String? tempPath = await saveImageToTempFile(editedImage);
+final String? tempPath = await saveImageToTempFile(
+  editedImage,
+  compression: const ImageCompressionConfig(scale: 0.5),
+);
 ```
 > **Recommendation**  
 > Prefer rendering `ui.Image` directly or sending `Uint8List` buffers. Converting to a temporary file path blocks on disk IO and may take ~1–2 seconds on mid-range devices.
+
+### 4. Optional: enable export-time compression
+```dart
+const compression = ImageCompressionConfig(
+  enabled: true,
+  scale: 0.3, // downscale width/height
+  format: ui.ImageByteFormat.png,
+);
+
+final ui.Image? result = await Navigator.push(
+  context,
+  MaterialPageRoute(
+    builder: (_) => ImageEditor(
+      image: avatar,
+      config: ImageEditorConfig(compression: compression),
+    ),
+  ),
+);
+
+final Uint8List? compressedBytes =
+    await convertUiImageToBytes(result!, compression: compression);
+```
+> Use `scale` to shrink pixel dimensions and reduce memory/disk footprint. `enabled` defaults to `true`, and values in (0,1] take effect. PNG remains lossless; apply custom pipelines if you need additional compression.
 
 ## Example App
 The `example/` folder showcases asset, gallery, camera, and network flows. Run it with:

@@ -1,3 +1,7 @@
+## 0.0.3
+- Added `ImageCompressionConfig` to downscale `ui.Image` output when exporting or saving temp files.
+- Extended `ImageEditorConfig` with a `compression` field; the example app demonstrates enabling compression.
+
 ## 0.0.2
 - Add saveImageToTempFile,  For workflows that absolutely need a path
 

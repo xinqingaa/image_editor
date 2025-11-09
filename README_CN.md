@@ -10,7 +10,7 @@ Image Editor 是一个可嵌入的 Flutter 图像编辑组件，提供裁剪、�
 - **状态管理**：内置历史栈，可撤销上一步操作并支持恢复初始图片。
 - **高度可配置**：通过 `ImageEditorConfig` 定制工具可用性、裁剪选项、顶部工具栏文案与颜色。
 - **跨平台加载**：提供 `loadImageFromAssets`、`loadImageFromFile`、`loadImageFromNetwork` 等方法，抽象平台差异。
-- **像素导出**：支持将 `ui.Image` 转换为 PNG/JPEG 字节流，或在确实需要文件路径时，借助 `saveImageToTempFile` 保存临时文件。
+- **像素导出**：支持将 `ui.Image` 转换为 PNG/JPEG 字节流，可选基于 `ImageCompressionConfig` 按比例压缩；在确实需要文件路径时，可通过 `saveImageToTempFile` 保存临时文件。
 - **手势友好**：支持双指缩放、拖拽、点击选择文本图层等操作。
 
 ## 目录结构
@@ -87,6 +87,10 @@ class _AvatarEditorDemoState extends State<AvatarEditorDemo> {
               titleText: '编辑头像',
               confirmText: '完成',
             ),
+            compression: ImageCompressionConfig(
+              enabled: true,
+              scale: 0.5,
+            ),
           ),
         ),
       ),
@@ -138,10 +142,36 @@ final ui.Image image = await loadImageFromAssets('assets/sample.jpg');
 ```dart
 final Uint8List? pngBytes = await convertUiImageToBytes(editedImage);
 // 若业务场景必须使用文件路径：
-final String? tempPath = await saveImageToTempFile(editedImage);
+final String? tempPath = await saveImageToTempFile(
+  editedImage,
+  compression: const ImageCompressionConfig(scale: 0.5),
+);
 ```
 > **推荐做法**  
 > `ui.Image` 直接渲染＋传输字节数据的效率最佳。将图片写入临时文件涉及磁盘 IO，在中端设备上实测大约需要 1～2 秒，应仅在确实需要路径时使用。
+
+### 4. 启用导出压缩（可选）
+```dart
+const config = ImageCompressionConfig(
+  enabled: true,
+  scale: 0.3, // 将宽高按比例缩放
+  format: ui.ImageByteFormat.png,
+);
+
+final ui.Image? result = await Navigator.push(
+  context,
+  MaterialPageRoute(
+    builder: (_) => ImageEditor(
+      image: avatar,
+      config: ImageEditorConfig(compression: config),
+    ),
+  ),
+);
+
+final Uint8List? compressedBytes =
+    await convertUiImageToBytes(result!, compression: config);
+```
+> 通过 `scale` 控制像素缩放，可降低导出图片的内存与磁盘体积。`enabled` 默认为 `true`，值在 (0,1] 时生效。PNG 为无损编码，如需进一步压缩可结合自定义处理。
 
 ## 示例应用
 示例项目位于 `example/`，展示了从内置资源、相册、相机、网络四种来源加载并编辑的流程。运行：

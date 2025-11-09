@@ -23,6 +23,7 @@
   - `enableText` *(bool)*：启用文本工具，默认 `true`。
   - `cropOptions` *(CropOptionConfig)*：裁剪比例开关集合。
   - `topToolbar` *(TopToolbarConfig)*：顶部工具栏文案/配色。
+  - `compression` *(ImageCompressionConfig?)*：导出时的压缩配置，`null` 时保持原尺寸。
 - **常见用法**：禁用文本工具、限制裁剪为 1:1、重写确认按钮文本等。
 
 ### CropOptionConfig
@@ -38,6 +39,13 @@
   - `cancelText`, `titleText`, `confirmText`
   - `cancelTextColor`, `titleTextColor`, `confirmTextColor`, `backgroundColor`
 - 为空时使用组件内置默认值。
+
+### ImageCompressionConfig
+- 控制导出阶段的像素缩放与编码：
+  - `enabled` *(bool，默认 `true`)*：是否启用压缩逻辑。
+  - `scale` *(double?，默认 `0.5`)*：宽高缩放比例，取值需大于 0；`null` 或 ≥ 1 时维持原尺寸。
+  - `format` *(ui.ImageByteFormat，默认 `png`)*：输出格式；当前实现推荐使用 PNG。
+- 可传入 `ImageEditorConfig.compression`、`convertUiImageToBytes` 或 `saveImageToTempFile` 的 `compression` 参数共用一套配置。
 
 ### TextLayerData
 - 代表单个文本图层的数据结构：
@@ -97,13 +105,14 @@
 - 将图片原始字节解码为 `ui.Image`。
 - 常与自定义来源（文件选择器、相册插件）结合使用。
 
-### `Future<Uint8List?> convertUiImageToBytes(ui.Image image, {ui.ImageByteFormat format = ui.ImageByteFormat.png})`
-- 将 `ui.Image` 转换为特定格式的字节流，默认 PNG。
+### `Future<Uint8List?> convertUiImageToBytes(ui.Image image, {ImageCompressionConfig? compression})`
+- 将 `ui.Image` 按需缩放后编码为字节流；compression 为空时保持原始尺寸与默认 PNG。
 - 若底层 `toByteData` 返回 `null`，则返回 `null`。
 
-### `Future<String?> saveImageToTempFile(ui.Image image, {ui.ImageByteFormat format = ui.ImageByteFormat.png, String prefix = 'image'})`
+### `Future<String?> saveImageToTempFile(ui.Image image, {ImageCompressionConfig? compression, String prefix = 'image'})`
 - 依赖 `path_provider` 将图像缓存到临时目录，并返回生成的文件路径字符串。
 - 若编码失败（`convertUiImageToBytes` 返回 `null`），则返回 `null`。
+- 支持传入 `compression` 与 `convertUiImageToBytes` 保持一致的压缩策略。
 - 适合在分享、上传前快速获取一张本地临时图片。
 - **耗时提示**：保存至磁盘涉及编码与写入，实机（中端设备）测试大约需要 1~2 秒。推荐优先使用 `ui.Image` 直接渲染或传输 `Uint8List`，仅在确实需要文件路径时调用。
 

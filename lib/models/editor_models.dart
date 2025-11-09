@@ -1,6 +1,7 @@
 // image_editor/lib/models/editor_models.dart
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter_img_editor/utils/image_loader.dart';
 
 /// 编辑工具菜单的枚举
 enum EditToolsMenu {
@@ -32,12 +33,29 @@ class ImageEditorConfig {
   /// 顶部工具栏的文案与颜色配置
   final TopToolbarConfig topToolbar;
 
+  /// 导出图片时的压缩配置
+  final ImageCompressionConfig? compression;
+
+  /// 图片编辑器配置 
+  /// 
+  /// [enableCrop] 是否启用裁剪工具 默认true
+  /// 
+  /// [enableRotate] 是否启用旋转工具 默认true
+  /// 
+  /// [enableText] 是否启用文本工具 默认true
+  /// 
+  /// [cropOptions] 裁剪选项配置
+  /// 
+  /// [topToolbar] 顶部工具栏配置
+  /// 
+  /// [compression] 导出图片时的压缩配置
   const ImageEditorConfig({
     this.enableCrop = true,
     this.enableRotate = true,
     this.enableText = true,
     this.cropOptions = const CropOptionConfig(),
     this.topToolbar = const TopToolbarConfig(),
+    this.compression,
   });
 
   /// 是否至少启用了一个裁剪选项
@@ -73,7 +91,21 @@ class TopToolbarConfig {
   final Color? titleTextColor;
   final Color? confirmTextColor;
   final Color? backgroundColor;
-
+  /// 顶部工具栏配置
+  /// 
+  /// [cancelText] 取消按钮文本
+  /// 
+  /// [titleText] 标题文本
+  /// 
+  /// [confirmText] 确认按钮文本
+  /// 
+  /// [cancelTextColor] 取消按钮文本颜色
+  /// 
+  /// [titleTextColor] 标题文本颜色
+  /// 
+  /// [confirmTextColor] 确认按钮文本颜色
+  /// 
+  /// [backgroundColor] 背景颜色
   const TopToolbarConfig({
     this.cancelText,
     this.titleText,

@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_img_editor/image_editor.dart';
 import 'package:image_picker/image_picker.dart';
 
+import 'more_page.dart';
+
 void main() {
   runApp(const MyApp());
 }
@@ -35,52 +37,14 @@ class MyHomePage extends StatefulWidget {
 class _MyHomePageState extends State<MyHomePage> {
   final ImagePicker _picker = ImagePicker();
 
-  // 内置图片
-  ui.Image? _assetOriginal;
-  ui.Image? _assetEdited;
-
   // 相册图片
   ui.Image? _pickerOriginal;
   ui.Image? _pickerEdited;
   String? _pickerTempPath;
   Duration? _pickerTempDuration;
 
-  // 相机图片
-  ui.Image? _cameraOriginal;
-  ui.Image? _cameraEdited;
-
-  // 网络图片
-  ui.Image? _networkOriginal;
-  ui.Image? _networkEdited;
-
   // 是否正在选择相册图片
   bool _isPickingImage = false;
-  // 是否正在使用相机
-  bool _isCapturingImage = false;
-  // 是否正在下载网络图片
-  bool _isFetchingNetwork = false;
-
-  // 网络图片URL
-  static const String _networkImageUrl =
-      'https://img0.baidu.com/it/u=55569000,880805428&fm=253&app=138&f=JPEG?w=500&h=500';
-
-  @override
-  void initState() {
-    super.initState();
-    _warmUpAssetImage();
-  }
-
-  Future<void> _warmUpAssetImage() async {
-    try {
-      final ui.Image image = await loadImageFromAssets('assets/sample.jpg');
-      if (!mounted) return;
-      setState(() {
-        _assetOriginal = image;
-      });
-    } catch (error) {
-      _showSnack('加载内置图片失败: $error');
-    }
-  }
 
   void _showSnack(String message) {
     if (!mounted) return;
@@ -92,32 +56,24 @@ class _MyHomePageState extends State<MyHomePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: null,
+      appBar: AppBar(
+        title: const Text('Image Editor 示例'),
+        actions: [
+          TextButton(
+            onPressed: _openMorePage,
+            style: TextButton.styleFrom(
+              foregroundColor: Theme.of(context).colorScheme.onPrimary,
+            ),
+            child: const Text('更多示例'),
+          ),
+        ],
+      ),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            const Text(
-              '以下示例展示如何将图片编辑器嵌入到不同来源的图片工作流中，'
-              '并展示编辑前后的视觉、像素与内存占用对比。',
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              '''小贴士：
-· 示例直接调用 SDK 暴露的 `loadImageFromAssets`、`loadImageFromFile`、`loadImageFromNetwork`、`convertUiImageToBytes` 与 `saveImageToTempFile`。
-· 推荐优先使用 `ui.Image` 渲染或传输字节数据；生成临时文件路径会进行编码与磁盘写入，实机大约耗时 1～2 秒。
-· 在实际工程中需确保拥有相册/相机/网络权限；Web 平台调用文件相关 API 会抛出 `UnsupportedError`，请捕获后给用户友好提示。''',
-              style: TextStyle(color: Colors.black45, fontSize: 13),
-            ),
-            const SizedBox(height: 16),
-            _buildAssetDemo(),
-            _buildDivider(),
-            _buildCameraDemo(),
-            _buildDivider(),
+            _buildIntroCard(),
             _buildPickerDemo(),
-            _buildDivider(),
-            _buildNetworkDemo(),
-            _buildDivider(),
             _buildPerformanceNote(),
           ],
         ),
@@ -125,82 +81,30 @@ class _MyHomePageState extends State<MyHomePage> {
     );
   }
 
-  Widget _buildDivider() {
-    return const Padding(
-      padding: EdgeInsets.symmetric(vertical: 12),
-      child: Divider(height: 0.5),
-    );
-  }
-
-  Card _buildAssetDemo() {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildHeader(
-              title: '案例一：内置 Asset',
-              actions: [
-                ElevatedButton.icon(
-                  onPressed: _assetOriginal == null ? null : _handleAssetEdit,
-                  icon: const Icon(Icons.edit),
-                  label: const Text('打开编辑器'),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              '预置 Assets 中的示例图片，模拟头像编辑场景。'
-              '演示自定义工具栏文案、禁用文字工具，仅保留 1:1 裁剪。',
-            ),
-            const SizedBox(height: 16),
-            _buildComparisonRow(
-              original: _assetOriginal,
-              edited: _assetEdited,
-            ),
-            const SizedBox(height: 12),
-            _buildPixelStats(_assetOriginal, _assetEdited),
-          ],
-        ),
+  void _openMorePage() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const MorePage(),
       ),
     );
   }
 
-  Card _buildCameraDemo() {
-    return Card(
+  Card _buildIntroCard() {
+    return const Card(
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildHeader(
-              title: '案例二：相机拍照',
-              actions: [
-                ElevatedButton.icon(
-                  onPressed: _isCapturingImage ? null : _handleCameraEdit,
-                  icon: const Icon(Icons.photo_camera),
-                  label: Text(_isCapturingImage ? '启动中...' : '拍照并编辑'),
-                ),
-              ],
+            Text(
+              '本页聚焦 image_picker 相册流程，演示如何快速打开图片编辑器并保存编辑结果。',
             ),
-            const SizedBox(height: 8),
-            const Text(
-              '使用 image_picker 调起系统相机拍摄图片后立即进入编辑器，'
-              '适合实时拍摄并进行裁剪、贴图、旋转等操作。',
+            SizedBox(height: 8),
+            Text(
+              '想了解内置 Asset、相机拍照与网络下载场景，请点击右上角“更多示例”。',
+              style: TextStyle(color: Colors.black54),
             ),
-            if (_isCapturingImage)
-              const Padding(
-                padding: EdgeInsets.only(top: 12),
-                child: LinearProgressIndicator(minHeight: 3),
-              ),
-            const SizedBox(height: 16),
-            _buildComparisonRow(
-              original: _cameraOriginal,
-              edited: _cameraEdited,
-            ),
-            const SizedBox(height: 12),
-            _buildPixelStats(_cameraOriginal, _cameraEdited),
           ],
         ),
       ),
@@ -215,7 +119,7 @@ class _MyHomePageState extends State<MyHomePage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildHeader(
-              title: '案例二：Image Picker 相册',
+              title: '案例：Image Picker 相册',
               actions: [
                 ElevatedButton.icon(
                   onPressed: _isPickingImage ? null : _handlePickerEdit,
@@ -242,70 +146,23 @@ class _MyHomePageState extends State<MyHomePage> {
                 const SizedBox(width: 16),
                 _buildImagePanel(label: 'ui.Image', image: _pickerEdited),
                 const SizedBox(width: 16),
-                 _buildImagePanelFromPath(label: 'path', path: _pickerTempPath),
+                _buildImagePanelFromPath(label: 'path', path: _pickerTempPath),
               ],
             ),
             const SizedBox(height: 12),
             _buildPixelStats(_pickerOriginal, _pickerEdited),
-             if (_pickerTempPath != null) ...[
-               const SizedBox(height: 16),
-               Text('临时文件路径 (saveImageToTempFile):',
-                  style: Theme.of(context).textTheme.titleSmall),
+            if (_pickerTempPath != null) ...[
+              const SizedBox(height: 16),
+              Text(
+                '临时文件路径 (saveImageToTempFile):',
+                style: Theme.of(context).textTheme.titleSmall,
+              ),
               const SizedBox(height: 4),
               SelectableText(_pickerTempPath!),
-              Text('耗时: ${_pickerTempDuration != null ? '${_pickerTempDuration!.inMilliseconds} ms' : '--'}'),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-
-  Card _buildNetworkDemo() {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildHeader(
-              title: '案例三：网络图片',
-              actions: [
-                ElevatedButton.icon(
-                  onPressed:
-                      _isFetchingNetwork ? null : () => _handleNetworkEdit(),
-                  icon: const Icon(Icons.cloud_download),
-                  label: Text(_isFetchingNetwork ? '下载中...' : '下载并编辑'),
-                ),
-                TextButton(
-                  onPressed: (_networkOriginal == null || _isFetchingNetwork)
-                      ? null
-                      : () => _handleNetworkEdit(refresh: false),
-                  child: const Text('再次编辑'),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Text(
-              '示例地址：$_networkImageUrl',
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              '从网络加载一张高清图像，保留所有工具，演示下载—编辑—回传全流程。',
-            ),
-            if (_isFetchingNetwork)
-              const Padding(
-                padding: EdgeInsets.only(top: 12),
-                child: LinearProgressIndicator(minHeight: 3),
+              Text(
+                '耗时: ${_pickerTempDuration != null ? '${_pickerTempDuration!.inMilliseconds} ms' : '--'}',
               ),
-            const SizedBox(height: 16),
-            _buildComparisonRow(
-              original: _networkOriginal,
-              edited: _networkEdited,
-            ),
-            const SizedBox(height: 12),
-            _buildPixelStats(_networkOriginal, _networkEdited),
+            ],
           ],
         ),
       ),
@@ -332,20 +189,6 @@ class _MyHomePageState extends State<MyHomePage> {
           runSpacing: 8,
           children: actions,
         ),
-      ],
-    );
-  }
-
-  Widget _buildComparisonRow({
-    required ui.Image? original,
-    required ui.Image? edited,
-  }) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _buildImagePanel(label: '原始', image: original),
-        const SizedBox(width: 16),
-        _buildImagePanel(label: '编辑后', image: edited),
       ],
     );
   }
@@ -525,82 +368,6 @@ class _MyHomePageState extends State<MyHomePage> {
     }
   }
 
-  Future<void> _handleAssetEdit() async {
-    final ui.Image? original = _assetOriginal;
-    if (original == null) {
-      _showSnack('内置图片尚未准备好');
-      return;
-    }
-    final ui.Image? result = await _openEditor(
-      original,
-      config: const ImageEditorConfig(
-        enableRotate: true,
-        enableText: false,
-        cropOptions: CropOptionConfig(
-          enableFree: false,
-          enable16By9: false,
-          enable5By4: false,
-          enable1By1: true,
-        ),
-        topToolbar: TopToolbarConfig(
-          titleText: '头像编辑',
-          cancelText: '返回',
-          confirmText: '完成',
-          confirmTextColor: Colors.orange,
-        ),
-      ),
-    );
-    if (!mounted || result == null) return;
-    setState(() {
-      _assetEdited = result;
-    });
-    await _logImageBytes(result, 'asset');
-  }
-
-  Future<void> _handleCameraEdit() async {
-    if (_isCapturingImage) return;
-    setState(() {
-      _isCapturingImage = true;
-    });
-    try {
-      final XFile? captured = await _picker.pickImage(source: ImageSource.camera);
-      if (captured == null) {
-        return;
-      }
-
-      final ui.Image image = await loadImageFromFile(captured.path);
-      if (!mounted) return;
-      setState(() {
-        _cameraOriginal = image;
-        _cameraEdited = null;
-      });
-
-      final ui.Image? result = await _openEditor(
-        image,
-        config: const ImageEditorConfig(
-          topToolbar: TopToolbarConfig(
-            titleText: '相机图片编辑',
-            cancelText: '取消',
-            confirmText: '完成',
-          ),
-        ),
-      );
-
-      if (!mounted || result == null) return;
-      setState(() {
-        _cameraEdited = result;
-      });
-      await _logImageBytes(result, 'camera');
-    } catch (error) {
-      _showSnack('拍照失败: $error');
-    } finally {
-      if (!mounted) return;
-      setState(() {
-        _isCapturingImage = false;
-      });
-    }
-  }
-
   Future<void> _handlePickerEdit() async {
     if (_isPickingImage) return;
     setState(() {
@@ -625,13 +392,16 @@ class _MyHomePageState extends State<MyHomePage> {
             cancelText: '取消',
             confirmText: '完成',
           ),
+          compression: ImageCompressionConfig(
+            enabled: true,
+            scale: 0.3,
+          ),
         ),
       );
       if (!mounted || result == null) return;
       setState(() {
         _pickerEdited = result;
       });
-      await _processPickerResult(result);
       await _processPickerResult(result);
       await _logImageBytes(result, 'picker');
     } catch (error) {
@@ -640,53 +410,6 @@ class _MyHomePageState extends State<MyHomePage> {
       if (!mounted) return;
       setState(() {
         _isPickingImage = false;
-      });
-    }
-  }
-
-  Future<void> _handleNetworkEdit({bool refresh = true}) async {
-    if (_isFetchingNetwork) return;
-    setState(() {
-      _isFetchingNetwork = true;
-    });
-    try {
-      ui.Image image;
-      if (_networkOriginal != null && !refresh) {
-        image = _networkOriginal!;
-      } else {
-        image = await loadImageFromNetwork(_networkImageUrl);
-        if (!mounted) return;
-        setState(() {
-          _networkOriginal = image;
-          if (refresh) {
-            _networkEdited = null;
-          }
-        });
-      }
-
-      final ui.Image? result = await _openEditor(
-        image,
-        config: const ImageEditorConfig(
-          
-          topToolbar: TopToolbarConfig(
-            titleText: '网络图片编辑',
-            cancelText: '返回',
-            confirmText: '完成',
-          ),
-        ),
-      );
-      if (!mounted || result == null) return;
-      setState(() {
-        _networkEdited = result;
-      });
-      await _logImageBytes(result, 'network');
-    } catch (error) {
-      _showSnack('下载网络图片失败: $error');
-    } finally {
-
-      if (!mounted) return;
-      setState(() {
-        _isFetchingNetwork = false;
       });
     }
   }
