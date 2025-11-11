@@ -28,9 +28,7 @@ See `doc/api_reference.md` for detailed API descriptions.
 Add to your `pubspec.yaml`:
 ```yaml
 dependencies:
-  flutter_img_editor:
-    git:
-      url: https://github.com/your-org/flutter_img_editor.git
+  flutter_img_editor: ^0.0.3 # last verions
 ```
 Run:
 ```bash
