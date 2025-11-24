@@ -8,7 +8,7 @@ Image Editor 是一个可嵌入的 Flutter 图像编辑组件，提供裁剪、�
 ## 功能特性
 - **多工具链**：裁剪（自由/16:9/5:4/1:1）、旋转（任意角度、±90°）、文字贴层。
 - **状态管理**：内置历史栈，可撤销上一步操作并支持恢复初始图片。
-- **高度可配置**：通过 `ImageEditorConfig` 定制工具可用性、裁剪选项、顶部工具栏文案与颜色。
+- **高度可配置**：通过 `ImageEditorConfig` 定制工具可用性、裁剪选项、旋转选项、顶部工具栏文案与颜色。
 - **跨平台加载**：提供 `loadImageFromAssets`、`loadImageFromFile`、`loadImageFromNetwork` 等方法，抽象平台差异。
 - **像素导出**：支持将 `ui.Image` 转换为 PNG/JPEG 字节流，可选基于 `ImageCompressionConfig` 按比例压缩；在确实需要文件路径时，可通过 `saveImageToTempFile` 保存临时文件。
 - **手势友好**：支持双指缩放、拖拽、点击选择文本图层等操作。
@@ -82,6 +82,10 @@ class _AvatarEditorDemoState extends State<AvatarEditorDemo> {
               enable16By9: false,
               enable5By4: false,
               enable1By1: true,
+            ),
+            rotateOptions: RotateOptionConfig(
+              enableFree: false,
+              enableFixed: true,
             ),
             topToolbar: TopToolbarConfig(
               titleText: '编辑头像',
@@ -182,6 +186,7 @@ flutter run
 
 ## 常见问题
 - **为什么某些裁剪比例不可用？** 若在 `ImageEditorConfig.cropOptions` 中禁用该比例，将自动隐藏对应菜单。
+- **如何控制旋转选项？** 使用 `ImageEditorConfig.rotateOptions` 可分别启用/禁用自由旋转（`enableFree`）和固定角度旋转（`enableFixed`）。禁用后，对应的按钮将自动隐藏。
 - **Web 平台使用 `loadImageFromFile` 报错？** Web 不支持文件系统读取，该函数会抛出 `UnsupportedError`。请使用文件选择器方案并手动解码。
 - **如何监听编辑器状态？** 使用 `ImageEditorController`（见 API 文档）可获取当前工具、裁剪框、文本图层等信息。
 

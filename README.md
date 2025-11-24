@@ -8,7 +8,7 @@ Image Editor is an embeddable Flutter component that brings cropping, rotation, 
 ## Highlights
 - **Rich toolset**: cropping (free, 16:9, 5:4, 1:1), rotation (free angle, ±90°), and text layers.
 - **Stateful workflow**: built-in history stack with undo and reset-to-original.
-- **Highly configurable**: tune tool availability, crop presets, and top toolbar copy/colors via `ImageEditorConfig`.
+- **Highly configurable**: tune tool availability, crop presets, rotation options, and top toolbar copy/colors via `ImageEditorConfig`.
 - **Cross-platform loaders**: helpers such as `loadImageFromAssets`, `loadImageFromFile`, and `loadImageFromNetwork` hide platform differences.
 - **Pixel export**: convert edited `ui.Image` instances to PNG/JPEG bytes, optionally apply `ImageCompressionConfig` scaling, or persist them via `saveImageToTempFile` when a file path is required.
 - **Gesture friendly**: pinch-to-zoom, drag, and tap to select text layers.
@@ -83,6 +83,10 @@ class _AvatarEditorDemoState extends State<AvatarEditorDemo> {
               enable16By9: false,
               enable5By4: false,
               enable1By1: true,
+            ),
+            rotateOptions: RotateOptionConfig(
+              enableFree: false,
+              enableFixed: true,
             ),
             topToolbar: TopToolbarConfig(
               titleText: 'Edit Avatar',
@@ -183,6 +187,7 @@ flutter run
 
 ## FAQ
 - **Why is a crop ratio missing?** Disable a ratio in `ImageEditorConfig.cropOptions` and it disappears from the toolbar.
+- **How do I control rotation options?** Use `ImageEditorConfig.rotateOptions` to enable/disable free rotation (`enableFree`) and fixed-angle rotation (`enableFixed`). When disabled, corresponding buttons are hidden.
 - **`loadImageFromFile` throws on Web?** Web lacks direct file system access; the helper throws `UnsupportedError`. Use a file picker and manually decode bytes.
 - **How do I observe editor state?** Use `ImageEditorController` to read active tool, crop rect, text layers, and more.
 

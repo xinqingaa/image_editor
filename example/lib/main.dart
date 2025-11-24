@@ -387,6 +387,10 @@ class _MyHomePageState extends State<MyHomePage> {
       final ui.Image? result = await _openEditor(
         image,
         config: const ImageEditorConfig(
+          rotateOptions: RotateOptionConfig(
+            // enableFree: false,
+            enableFixed: false,
+          ),
           topToolbar: TopToolbarConfig(
             titleText: '相册图片编辑',
             cancelText: '取消',

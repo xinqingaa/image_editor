@@ -57,6 +57,7 @@ class ImageEditorController extends ChangeNotifier {
 
   // ----------------- 手势和拖拽相关的临时状态 -----------------
   double _previousScale = 1.0;
+  bool _isScalingGesture = false; // 标记是否为缩放手势（双指）
   DragHandlePosition? _activeDragHandle;
   DragHandlePosition? get activeDragHandle => _activeDragHandle;
   Offset? _dragStartPoint;
@@ -98,6 +99,14 @@ class ImageEditorController extends ChangeNotifier {
 
   bool get isTextFeatureEnabled => config.enableText;
 
+  /// 是否启用自由旋转功能
+  bool get isFreeRotateEnabled => 
+      isRotateFeatureEnabled && config.rotateOptions.enableFree;
+
+  /// 是否启用固定角度旋转功能
+  bool get isFixedRotateEnabled => 
+      isRotateFeatureEnabled && config.rotateOptions.enableFixed;
+
   // 是否正在执行操作
   bool _isBusy = false;
   bool get isBusy => _isBusy;
@@ -130,7 +139,16 @@ class ImageEditorController extends ChangeNotifier {
       }
     }
     if (isRotateTool(tool)) {
-      return isRotateFeatureEnabled;
+      if (!isRotateFeatureEnabled) return false;
+      switch (tool) {
+        case EditToolsMenu.rotateFree:
+          return config.rotateOptions.enableFree;
+        case EditToolsMenu.rotate_90:
+        case EditToolsMenu.rotate_90_:
+          return config.rotateOptions.enableFixed;
+        default:
+          return false;
+      }
     }
     if (tool == EditToolsMenu.text) {
       return isTextFeatureEnabled;
@@ -155,6 +173,19 @@ class ImageEditorController extends ChangeNotifier {
       }
     }
     return tool;
+  }
+
+  EditToolsMenu? _resolveRotateTool(EditToolsMenu tool) {
+    if (!isRotateTool(tool)) return tool;
+    // 对于旋转工具，统一使用 rotateFree 作为激活工具
+    // RotateToolbar 会根据配置（enableFree 和 enableFixed）显示对应的按钮
+    // 这样无论配置如何，都能正确显示 RotateToolbar
+    if (isRotateFeatureEnabled) {
+      // 只要旋转功能启用，就选择 rotateFree
+      // RotateToolbar 会根据配置决定显示哪些按钮
+      return EditToolsMenu.rotateFree;
+    }
+    return null;
   }
 
   /// UI层在布局完成后需要调用此方法设置画布尺寸
@@ -362,7 +393,9 @@ class ImageEditorController extends ChangeNotifier {
     EditToolsMenu? resolvedTool;
     if (isCropTool(tool)) {
       resolvedTool = _resolveCropTool(tool);
-    } else if (isRotateTool(tool) || tool == EditToolsMenu.text) {
+    } else if (isRotateTool(tool)) {
+      resolvedTool = _resolveRotateTool(tool);
+    } else if (tool == EditToolsMenu.text) {
       resolvedTool = isToolEnabled(tool) ? tool : null;
     } else {
       resolvedTool = tool;
@@ -453,11 +486,12 @@ class ImageEditorController extends ChangeNotifier {
       return; // 命中文字，中断后续操作
     }
 
-
     if (isCroppingActive) {
       _onCropDragStart(details.localFocalPoint);
     } else {
       _previousScale = _scale;
+      // 初始化时，假设不是缩放手势，后续根据 scale 值判断
+      _isScalingGesture = false;
     }
   }
 
@@ -473,7 +507,18 @@ class ImageEditorController extends ChangeNotifier {
     if (isCroppingActive && _activeDragHandle != null) {
       _onCropDragUpdate(details.localFocalPoint);
     } else if (!isCroppingActive) {
-      _scale = (_previousScale * details.scale).clamp(0.2, 5.0);
+      // 判断是否为缩放手势：如果 scale 明显偏离 1.0（阈值 0.05），则认为是缩放手势
+      // 这样可以区分单指滑动（scale 接近 1.0）和双指缩放（scale 明显变化）
+      final scaleDeviation = (details.scale - 1.0).abs();
+      if (scaleDeviation > 0.05) {
+        _isScalingGesture = true;
+      }
+      
+      // 只有在确认是缩放手势时才执行缩放
+      // 如果当前 scale 明显偏离 1.0，则执行缩放；否则忽略（避免单指滑动时误触发）
+      if (_isScalingGesture && scaleDeviation > 0.02) {
+        _scale = (_previousScale * details.scale).clamp(0.2, 5.0);
+      }
       // 注意：平移逻辑需要根据具体交互设计调整，这里暂时注释掉
       // _translateX += details.focalPointDelta.dx;
       // _translateY += details.focalPointDelta.dy;
@@ -491,6 +536,9 @@ class ImageEditorController extends ChangeNotifier {
     if (isCroppingActive) {
       _onCropDragEnd();
     }
+    
+    // 重置缩放手势标记
+    _isScalingGesture = false;
   }
 
 

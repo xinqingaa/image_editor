@@ -85,8 +85,19 @@ class _ImageEditorViewState extends State<ImageEditorView> {
   Widget _buildEditorCanvas() {
     return LayoutBuilder(
       builder: (context, constraints) {
-        // 及时将画布尺寸告知 Controller
-        _controller.setCanvasSize(constraints.biggest);
+        // 计算可用空间：减去顶部和底部工具栏的高度
+        final mediaQuery = MediaQuery.of(context);
+        final topToolbarHeight = 56.0 + mediaQuery.padding.top; // TopToolbar 使用 SafeArea，高度约 56px + SafeArea.top
+        final bottomToolbarHeight = 56.0 + mediaQuery.padding.bottom + 20.0; // 底部工具栏高度约 56px + SafeArea.bottom + 20px padding
+        
+        final availableHeight = constraints.maxHeight - topToolbarHeight - bottomToolbarHeight;
+        final availableSize = Size(
+          constraints.maxWidth,
+          availableHeight > 0 ? availableHeight : constraints.maxHeight * 0.7, // 如果计算出的高度太小，至少保留70%的空间
+        );
+        
+        // 及时将可用画布尺寸告知 Controller
+        _controller.setCanvasSize(availableSize);
         if (_controller.canvasSize == null) {
           return const Center(child: CircularProgressIndicator());
         }

@@ -556,6 +556,10 @@ class _MorePageState extends State<MorePage> {
       final ui.Image? result = await _openEditor(
         image,
         config: const ImageEditorConfig(
+          rotateOptions: RotateOptionConfig(
+            enableFree: false,
+            enableFixed: true,
+          ),
           topToolbar: TopToolbarConfig(
             titleText: '相机图片编辑',
             cancelText: '取消',

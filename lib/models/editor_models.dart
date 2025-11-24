@@ -30,6 +30,9 @@ class ImageEditorConfig {
   /// 裁剪菜单中各选项的启用状态
   final CropOptionConfig cropOptions;
 
+  /// 旋转菜单中各选项的启用状态
+  final RotateOptionConfig rotateOptions;
+
   /// 顶部工具栏的文案与颜色配置
   final TopToolbarConfig topToolbar;
 
@@ -46,6 +49,8 @@ class ImageEditorConfig {
   /// 
   /// [cropOptions] 裁剪选项配置
   /// 
+  /// [rotateOptions] 旋转选项配置
+  /// 
   /// [topToolbar] 顶部工具栏配置
   /// 
   /// [compression] 导出图片时的压缩配置
@@ -54,6 +59,7 @@ class ImageEditorConfig {
     this.enableRotate = true,
     this.enableText = true,
     this.cropOptions = const CropOptionConfig(),
+    this.rotateOptions = const RotateOptionConfig(),
     this.topToolbar = const TopToolbarConfig(),
     this.compression,
   });
@@ -78,6 +84,20 @@ class CropOptionConfig {
     this.enable16By9 = true,
     this.enable5By4 = true,
     this.enable1By1 = true,
+  });
+}
+
+/// 旋转选项配置
+class RotateOptionConfig {
+  /// 是否启用自由旋转（中间滑块按钮）
+  final bool enableFree;
+  
+  /// 是否启用固定角度旋转（两侧的90度旋转按钮）
+  final bool enableFixed;
+
+  const RotateOptionConfig({
+    this.enableFree = true,
+    this.enableFixed = true,
   });
 }
 
