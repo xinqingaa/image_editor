@@ -28,7 +28,7 @@ lib/
 在你的 Flutter 项目的 `pubspec.yaml` 中加入：
 ```yaml
 dependencies:
-  flutter_img_editor: # 最新版本
+  flutter_img_editor: ^0.0.3 # 最新版本
 ```
 然后执行：
 ```bash

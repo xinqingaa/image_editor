@@ -64,7 +64,7 @@ class _MyHomePageState extends State<MyHomePage> {
             style: TextButton.styleFrom(
               foregroundColor: Theme.of(context).colorScheme.onPrimary,
             ),
-            child: const Text('更多示例'),
+            child: const Text('更多示例' , style: TextStyle(fontSize: 16 ,color: Colors.black)),
           ),
         ],
       ),
