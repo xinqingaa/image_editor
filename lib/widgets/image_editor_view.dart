@@ -1,5 +1,3 @@
-// image_editor/lib/widgets/image_editor_view.dart
-
 import 'package:flutter/material.dart';
 import '../widgets/toolbars/text_properties_toolbar.dart';
 import 'dart:ui' as ui;
@@ -55,26 +53,16 @@ class _ImageEditorViewState extends State<ImageEditorView> {
       builder: (context, child) {
         return Scaffold(
           backgroundColor: Colors.black,
-          body: Stack(
+          body: Column(
             children: [
-              // 画布将始终占据整个 Stack
-              Positioned.fill(
+              // 顶部工具栏
+              TopToolbar(controller: _controller),
+              // 中间画布区域（自动占据剩余空间）
+              Expanded(
                 child: _buildEditorCanvas(),
               ),
-              // 顶部工具栏
-              Positioned(
-                top: 0,
-                left: 0,
-                right: 0,
-                child: TopToolbar(controller: _controller),
-              ),
-              // 底部工具栏将作为浮层，定位在底部
-              Positioned(
-                bottom: 0,
-                left: 0,
-                right: 0,
-                child: _buildBottomToolbars(),
-              ),
+              // 底部工具栏
+              _buildBottomToolbars(),
             ],
           ),
         );
@@ -85,30 +73,25 @@ class _ImageEditorViewState extends State<ImageEditorView> {
   Widget _buildEditorCanvas() {
     return LayoutBuilder(
       builder: (context, constraints) {
-        // 计算可用空间：减去顶部和底部工具栏的高度
-        final mediaQuery = MediaQuery.of(context);
-        final topToolbarHeight = 56.0 + mediaQuery.padding.top; // TopToolbar 使用 SafeArea，高度约 56px + SafeArea.top
-        final bottomToolbarHeight = 56.0 + mediaQuery.padding.bottom + 20.0; // 底部工具栏高度约 56px + SafeArea.bottom + 20px padding
+        // constraints.biggest 现在就是真实可用的画布空间
+        // 因为 Expanded 已经自动减去了工具栏的高度
+        final canvasSize = constraints.biggest;
         
-        final availableHeight = constraints.maxHeight - topToolbarHeight - bottomToolbarHeight;
-        final availableSize = Size(
-          constraints.maxWidth,
-          availableHeight > 0 ? availableHeight : constraints.maxHeight * 0.7, // 如果计算出的高度太小，至少保留70%的空间
-        );
+        // 直接使用真实的可用尺寸
+        _controller.setCanvasSize(canvasSize);
         
-        // 及时将可用画布尺寸告知 Controller
-        _controller.setCanvasSize(availableSize);
         if (_controller.canvasSize == null) {
           return const Center(child: CircularProgressIndicator());
         }
+        
         return GestureDetector(
-          onTapDown: _controller.onTapDown, // 处理文字图层
+          onTapDown: _controller.onTapDown,
           onScaleStart: _controller.onScaleStart,
           onScaleUpdate: _controller.onScaleUpdate,
           onScaleEnd: _controller.onScaleEnd,
           child: CustomPaint(
-            size: _controller.canvasSize!,
-            painter: ImageEditorPainter(controller: _controller,),
+            size: canvasSize,
+            painter: ImageEditorPainter(controller: _controller),
           ),
         );
       },
