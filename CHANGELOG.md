@@ -1,3 +1,6 @@
+## 0.0.5
+- Fixed Bugs
+
 ## 0.0.4
 - Added `RotateOptionConfig` to control visibility of free rotation and fixed-angle rotation buttons.
 - Extended `ImageEditorConfig` with a `rotateOptions` field; configure `enableFree` and `enableFixed` to show/hide rotation controls.
