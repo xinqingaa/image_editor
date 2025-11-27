@@ -110,10 +110,10 @@ class CropHandler {
   }) {
     // 如果图片没有旋转，使用简单的轴对齐边界检查
     if (rotationAngle == 0.0) {
-      double left = rect.left.clamp(imageBounds.left, imageBounds.right - rect.width);
-      double top = rect.top.clamp(imageBounds.top, imageBounds.bottom - rect.height);
       double width = rect.width.clamp(minCropSize, imageBounds.width);
       double height = rect.height.clamp(minCropSize, imageBounds.height);
+      double left = rect.left.clamp(imageBounds.left, imageBounds.right - rect.width);
+      double top = rect.top.clamp(imageBounds.top, imageBounds.bottom - rect.height);
 
       if (left + width > imageBounds.right) {
         left = imageBounds.right - width;

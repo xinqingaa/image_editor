@@ -100,15 +100,28 @@ class _ImageEditorViewState extends State<ImageEditorView> {
 
   // 用于管理底部工具栏的显示逻辑
   Widget _buildBottomToolbars() {
-    // 优先显示文本属性工具栏
+    // 1. 优先处理文本图层被选中的情况（编辑现有文本）
     if (_controller.selectedTextLayerId != null) {
       return TextPropertiesToolbar(controller: _controller);
     }
-    // 其次显示激活的工具菜单 (裁剪、旋转等)
+
+    // 2. 如果处于锁定模式
+    if (_controller.isSingleToolMode) {
+      final lockedTool = _controller.config.lockToTool!;
+      // 如果锁定的工具是旋转或文本，则显示 ActiveToolMenu
+      if (isRotateTool(_controller.convertLockModeToTool(lockedTool)) || _controller.convertLockModeToTool(lockedTool) == EditToolsMenu.text) {
+        return ActiveToolMenu(controller: _controller);
+      }
+      // 如果锁定的工具是裁剪，则不显示任何底部工具栏
+      return const SizedBox.shrink();
+    }
+
+    // 3. 正常模式下的逻辑
+    // 如果有激活的工具（用户从主工具栏点击进入）
     if (_controller.activeTool != EditToolsMenu.none) {
       return ActiveToolMenu(controller: _controller);
     }
-    // 最后显示主工具栏
+    // 默认显示主工具栏
     return MainToolbar(controller: _controller);
   }
 }

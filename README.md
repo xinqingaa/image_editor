@@ -75,6 +75,7 @@ class _AvatarEditorDemoState extends State<AvatarEditorDemo> {
         builder: (_) => ImageEditor(
           image: avatar,
           config: const ImageEditorConfig(
+            // lockToTool: LockToTool.crop1_1, // These parameters will be directly ignored. lockToTool has the highest priority and will immediately perform cropping. 
             enableText: false,
             cropOptions: CropOptionConfig(
               enableFree: false,

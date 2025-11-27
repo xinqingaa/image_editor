@@ -28,7 +28,7 @@ lib/
 在你的 Flutter 项目的 `pubspec.yaml` 中加入：
 ```yaml
 dependencies:
-  flutter_img_editor: ^0.0.3 # 最新版本
+  flutter_img_editor: last_version # 最新版本
 ```
 然后执行：
 ```bash
@@ -76,6 +76,7 @@ class _AvatarEditorDemoState extends State<AvatarEditorDemo> {
         builder: (_) => ImageEditor(
           image: avatar,
           config: const ImageEditorConfig(
+            // lockToTool: LockToTool.crop1_1, // 会直接忽略以下参数，优先级最高，直接进行裁剪
             enableText: false,
             cropOptions: CropOptionConfig(
               enableFree: false,

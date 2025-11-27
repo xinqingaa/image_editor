@@ -48,9 +48,9 @@ class ImageEditorController extends ChangeNotifier {
   List<TextLayerData> get textLayers => _textLayerManager.layers;
   // 用于临时存储当前正在输入的文本
   String _editingText = '';
-  // [新增] 核心状态：当前选中的文本图层ID（委托给 TextLayerManager）
+  // 核心状态：当前选中的文本图层ID（委托给 TextLayerManager）
   String? get selectedTextLayerId => _textLayerManager.selectedLayerId;
-  // [新增] 拖动相关的临时状态
+  // 拖动相关的临时状态
   Offset? _dragTextStartPoint;
   Offset? _initialLayerOffset;
 
@@ -84,6 +84,22 @@ class ImageEditorController extends ChangeNotifier {
   
   /// 文本图层管理器
   final TextLayerManager _textLayerManager = TextLayerManager();
+
+  /// 判断是否处于单一工具模式（由 config.lockToTool 决定）
+  bool get isSingleToolMode => config.lockToTool != null;
+
+  EditToolsMenu convertLockModeToTool(LockToTool lockMode) {
+    switch (lockMode) {
+      case LockToTool.crop1_1:
+        return EditToolsMenu.crop1_1;
+      case LockToTool.cropFree:
+        return EditToolsMenu.cropFree;
+      case LockToTool.crop16_9:
+        return EditToolsMenu.crop16_9;
+      case LockToTool.crop5_4:
+        return EditToolsMenu.crop5_4;
+    }
+  }
 
   /// 构造函数，需要传入一个初始图片
   ImageEditorController({
@@ -120,6 +136,10 @@ class ImageEditorController extends ChangeNotifier {
 
   // 判断工具是否启用
   bool isToolEnabled(EditToolsMenu tool) {
+    if (isSingleToolMode) {
+      return tool == config.lockToTool;
+    }
+
     if (tool == EditToolsMenu.none) {
       return true;
     }
@@ -190,22 +210,52 @@ class ImageEditorController extends ChangeNotifier {
 
   /// UI层在布局完成后需要调用此方法设置画布尺寸
   void setCanvasSize(Size size) {
-    // 检查是否是第一次设置。用 _canvasSize == null 更可靠。
+    // 检查是否是第一次设置
     if (_canvasSize == null) {
       _canvasSize = size;
-      // 使用 addPostFrameCallback 将初始化操作延迟到 build 周期之后
+      
+      // 立即初始化缩放
+      _initializeImageScale(); 
+
+      // [核心修复] 如果配置了初始工具，现在就立即选择它
+      // 因为 _canvasSize 已经就绪，可以安全调用
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        // 确保控制器没有被 dispose
-        if (_canvasSize != null) {
-          _initializeImageScale();
+        // 检查控制器是否在回调执行前被 dispose 了
+        if (_canvasSize == null) return; 
+
+        if (isSingleToolMode) {
+          _forceActivateTool(convertLockModeToTool(config.lockToTool!));
+        } else {
+          // 在正常模式下，我们之前没有 notifyListeners()
+          // 但实际上，_initializeImageScale() 改变了 scale 值，也应该通知UI
+          // 所以在这里统一通知一次
+          notifyListeners();
         }
       });
     }
-    // 如果画布尺寸发生变化（例如屏幕旋转），也需要处理
+    // 如果画布尺寸发生变化（例如屏幕旋转）
     else if (_canvasSize != size) {
       _canvasSize = size;
-      // 这里可以添加逻辑来重新计算缩放等，如果需要的话
+      // 这里可以添加逻辑来重新计算缩放等
+      _initializeImageScale();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_canvasSize == null) return;
+        notifyListeners();
+      });
     }
+  }
+
+  /// 强制激活工具
+  void _forceActivateTool(EditToolsMenu tool) {
+    _activeTool = tool;
+    if (isCroppingActive) {
+      _backupCropRect = _cropRect;
+      // 注意：这里仍然需要根据工具类型获取宽高比
+      _initializeCropRect(aspectRatio: _getAspectRatioForTool(tool));
+    } else if (isRotateTool(tool)) {
+      _backupRotationAngle = _currentRotationAngle;
+    }
+    notifyListeners();
   }
 
   void _initializeImageScale() {
@@ -220,7 +270,7 @@ class ImageEditorController extends ChangeNotifier {
     // 这样限制方向会占满100%
     _scale = math.min(widthRatio, heightRatio);
     // 4. 通知UI更新
-    notifyListeners();
+    // notifyListeners();
   }
 
   /// 重置所有变换状态，通常在替换图片或完成裁剪后调用
@@ -390,6 +440,7 @@ class ImageEditorController extends ChangeNotifier {
 
   /// 切换主工具
   void selectTool(EditToolsMenu tool) {
+    if (isSingleToolMode) return;
     EditToolsMenu? resolvedTool;
     if (isCropTool(tool)) {
       resolvedTool = _resolveCropTool(tool);
@@ -450,17 +501,6 @@ class ImageEditorController extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// 完成操作，导出最终图片
-  // Future<ui.Image?> exportImage() async {
-  //   if (isCroppingActive && _cropRect != null) {
-  //     return await _captureCroppedImage();
-  //   }
-  //   // 如果不是裁剪模式，可以根据需要实现导出应用了旋转和缩放的图片
-  //   // 这里为简化，直接返回当前图片（未应用变换）
-  //   // 若要导出带变换的图片，需要一个类似_captureCroppedImage的渲染过程
-  //   return _image;
-  // }
-
   Future<ui.Image?> exportImage() async {
     if (_canvasSize == null) return null;
     // 导出时，我们渲染当前所见即所得的视图
@@ -519,9 +559,6 @@ class ImageEditorController extends ChangeNotifier {
       if (_isScalingGesture && scaleDeviation > 0.02) {
         _scale = (_previousScale * details.scale).clamp(0.2, 5.0);
       }
-      // 注意：平移逻辑需要根据具体交互设计调整，这里暂时注释掉
-      // _translateX += details.focalPointDelta.dx;
-      // _translateY += details.focalPointDelta.dy;
     }
     notifyListeners();
   }
@@ -620,9 +657,6 @@ class ImageEditorController extends ChangeNotifier {
     _editingText = ''; // 清空临时文本
   }
 
-
-
-  /// [替换旧的_captureCroppedImage]
   /// 一个全新的、高保真的裁剪实现
   Future<ui.Image?> _captureHiResCroppedImage() async {
     if (_cropRect == null || _canvasSize == null) return null;
@@ -883,19 +917,51 @@ class ImageEditorController extends ChangeNotifier {
     return Rect.fromLTRB(minX, minY, maxX, maxY);
   }
 
+ // 在 ImageEditorController 类中
+
+  /// [已修复] 初始化裁剪框，使其完美贴合当前显示的图片。
   void _initializeCropRect({double? aspectRatio}) {
     if (_canvasSize == null) return;
 
-    // 获取图片的实际显示边界
-    final Rect imageBounds = _getImageDisplayBounds();
+    // 1. 获取画布中心点，这是所有变换的基准
+    final canvasCenter = Offset(_canvasSize!.width / 2, _canvasSize!.height / 2);
 
-    // 使用 CropHandler 初始化裁剪框
-    _cropRect = CropHandler.initializeCropRect(
-      canvasSize: _canvasSize!,
-      imageBounds: imageBounds,
-      aspectRatio: aspectRatio,
-    );
+    // 2. 计算图片在当前缩放下的实际显示尺寸
+    final double displayedWidth = _image.width * _scale;
+    final double displayedHeight = _image.height * _scale;
+
+    // 3. 定义初始裁剪框的尺寸，默认为图片的完整显示尺寸
+    double cropWidth = displayedWidth;
+    double cropHeight = displayedHeight;
+
+    // 4. 如果指定了宽高比，则根据该比例在图片显示区域内计算最大可能的裁剪框
+    if (aspectRatio != null) {
+      // 比较图片的显示宽高比与目标的宽高比
+      if (displayedWidth / displayedHeight > aspectRatio) {
+        // 图片偏宽，以高度为基准计算宽度
+        cropWidth = displayedHeight * aspectRatio;
+      } else {
+        // 图片偏高或比例相同，以宽度为基准计算高度
+        cropHeight = displayedWidth / aspectRatio;
+      }
+    } else {
+      // ✨ 撑满最短边
+      // 如果是自由裁剪（aspectRatio 为 null），并且您希望初始框为撑满最短边的正方形
+      // 可以取消下面这行代码的注释。
+      // 如果希望初始框就是整个图片，则保持注释。
+      final double shorterSide = math.min(displayedWidth, displayedHeight);
+      cropWidth = shorterSide;
+      cropHeight = shorterSide;
+    }
+
+    // 5. 计算裁剪框的左上角坐标，使其在画布上居中
+    final double left = canvasCenter.dx - cropWidth / 2;
+    final double top = canvasCenter.dy - cropHeight / 2;
+
+    // 6. 创建并设置 cropRect
+    _cropRect = Rect.fromLTWH(left, top, cropWidth, cropHeight);
   }
+
 
   void _onCropDragStart(Offset localPosition) {
     if (_cropRect == null) return;

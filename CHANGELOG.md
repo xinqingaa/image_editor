@@ -1,3 +1,8 @@
+## 0.0.6
+- Add a new lockToTool parameter to ImageEditorConfig to serve as a locked tool.
+- When it is set, configurations for other tools will be ignored, the editor will directly enter that tool’s mode, and switching to other tools will be disabled.
+Currently, only crop tools are supported. This is intended to make direct cropping more convenient.
+
 ## 0.0.5
 - Fixed Bugs
 

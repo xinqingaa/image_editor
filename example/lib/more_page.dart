@@ -516,6 +516,10 @@ class _MorePageState extends State<MorePage> {
           confirmText: '完成',
           confirmTextColor: Colors.orange,
         ),
+        compression: ImageCompressionConfig(
+          enabled: true,
+          scale: 0.8,
+        ),
       ),
     );
     if (!mounted || result == null) return;

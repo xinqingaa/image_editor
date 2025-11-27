@@ -38,12 +38,14 @@ class ImageEditorPainter extends CustomPainter {
     }
 
 
-    // --- [新增] 3. 绘制所有文本图层 ---
+    // --- 3. 绘制所有文本图层 ---
     _drawTextLayers(canvas, size);
   }
 
+  // 绘制裁剪UI 裁剪框和网格线 
   void _drawCropUI(Canvas canvas, Size size, Rect currentCropRect, double handleRadius) {
     final overlayPaint = Paint()..color = Colors.black.withValues(alpha: 0.7);
+    // 绘制裁剪框边框
     final borderPaint = Paint()
       ..color = Colors.white
       ..strokeWidth = 1.5
@@ -80,7 +82,7 @@ class ImageEditorPainter extends CustomPainter {
   }
 
 
-  // [新增] 绘制文本图层的辅助方法
+  // 绘制文本图层的辅助方法
   void _drawTextLayers(Canvas canvas, Size size) {
     for (final layer in controller.textLayers) {
       // 1. 构建段落
@@ -121,8 +123,7 @@ class ImageEditorPainter extends CustomPainter {
     }
   }
 
-  // [新增] 绘制虚线矩形的辅助方法
-  // [已修复] 绘制虚线矩形的辅助方法
+  // 绘制虚线矩形的辅助方法
   void _drawDashedRect(Canvas canvas, Rect rect, Paint paint) {
     const double dashWidth = 8.0;
     const double dashSpace = 4.0;

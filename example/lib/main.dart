@@ -387,6 +387,7 @@ class _MyHomePageState extends State<MyHomePage> {
       final ui.Image? result = await _openEditor(
         image,
         config: const ImageEditorConfig(
+          lockToTool: LockToTool.crop1_1,
           rotateOptions: RotateOptionConfig(
             // enableFree: false,
             enableFixed: false,

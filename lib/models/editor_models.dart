@@ -1,5 +1,3 @@
-// image_editor/lib/models/editor_models.dart
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_img_editor/utils/image_loader.dart';
 
@@ -14,6 +12,13 @@ enum EditToolsMenu {
   rotate_90,
   rotate_90_,
   text,
+}
+
+enum LockToTool {
+  crop1_1,
+  cropFree,
+  crop16_9,
+  crop5_4,
 }
 
 /// 图片编辑器的配置入口
@@ -39,6 +44,9 @@ class ImageEditorConfig {
   /// 导出图片时的压缩配置
   final ImageCompressionConfig? compression;
 
+  /// 锁定工具。如果设置，会忽略其他工具的配置，直接进入该工具模式，且无法切换其他工具。
+  final LockToTool? lockToTool;
+
   /// 图片编辑器配置 
   /// 
   /// [enableCrop] 是否启用裁剪工具 默认true
@@ -54,6 +62,8 @@ class ImageEditorConfig {
   /// [topToolbar] 顶部工具栏配置
   /// 
   /// [compression] 导出图片时的压缩配置
+  /// 
+  /// [lockToTool] 锁定工具。如果设置，会忽略其他工具的配置，直接进入该工具模式，且无法切换其他工具。
   const ImageEditorConfig({
     this.enableCrop = true,
     this.enableRotate = true,
@@ -62,6 +72,7 @@ class ImageEditorConfig {
     this.rotateOptions = const RotateOptionConfig(),
     this.topToolbar = const TopToolbarConfig(),
     this.compression,
+    this.lockToTool,
   });
 
   /// 是否至少启用了一个裁剪选项
